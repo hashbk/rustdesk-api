@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HeartbeatModule } from './heartbeat/heartbeat.module';
@@ -9,9 +10,26 @@ import { DeviceGroupModule } from './device-group/device-group.module';
 import { AuthModule } from './auth/auth.module';
 import { OidcModule } from './oidc/oidc.module';
 import { SystemModule } from './system/system.module';
+import { Sysinfo } from './system/entities/sysinfo.entity';
 
 @Module({
-  imports: [HeartbeatModule, AddressBookModule, AuditModule, UserModule, DeviceGroupModule, AuthModule, OidcModule, SystemModule],
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'sqlite',
+      database: 'rustdesk.db',
+      entities: [Sysinfo],
+      synchronize: true,
+      logging: false,
+    }),
+    HeartbeatModule,
+    AddressBookModule,
+    AuditModule,
+    UserModule,
+    DeviceGroupModule,
+    AuthModule,
+    OidcModule,
+    SystemModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
