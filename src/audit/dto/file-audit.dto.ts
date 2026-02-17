@@ -1,21 +1,5 @@
-import { IsString, IsInt, IsBoolean, IsArray, ValidateNested, Min, Max, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsInt, IsBoolean, Min, Max, IsOptional } from 'class-validator';
 import { FileAuditType } from '../entities/file-audit.entity';
-
-export class FileInfoDto {
-  @IsString()
-  ip: string;
-
-  @IsString()
-  name: string;
-
-  @IsInt()
-  @Min(0)
-  num: number;
-
-  @IsArray()
-  files: Array<[string, number]>;
-}
 
 export class FileAuditDto {
   @IsString()
@@ -39,7 +23,6 @@ export class FileAuditDto {
   @IsBoolean()
   is_file: boolean;
 
-  @ValidateNested()
-  @Type(() => FileInfoDto)
-  info: FileInfoDto;
+  @IsString()
+  info: string;
 }

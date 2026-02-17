@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ConnectionAudit } from './entities/connection-audit.entity';
 import { FileAudit } from './entities/file-audit.entity';
 import { AlarmAudit } from './entities/alarm-audit.entity';
@@ -50,17 +50,25 @@ export class AuditService {
   }
 
   async auditFile(dto: FileAuditDto): Promise<FileAudit> {
+    // 解析 info JSON 字符串
+    let info: { ip: string; name: string; num: number; files: Array<[string, number]> };
+    try {
+      info = JSON.parse(dto.info);
+    } catch (e) {
+      info = { ip: '', name: '', num: 0, files: [] };
+    }
+
     const fileAudit = this.fileAuditRepository.create({
       deviceId: dto.id,
       deviceUuid: dto.uuid,
-      peerId: dto.peer_id,
-      type: dto.type,
+      peerId: dto.peer_id || '',
+      type: dto.type !== undefined ? dto.type : 0,
       path: dto.path || null,
-      isFile: dto.is_file,
-      clientIp: dto.info.ip,
-      clientName: dto.info.name,
-      fileCount: dto.info.num,
-      files: dto.info.files.slice(0, 10),
+      isFile: dto.is_file || false,
+      clientIp: info.ip || '',
+      clientName: info.name || '',
+      fileCount: info.num || 0,
+      files: info.files?.slice(0, 10) || [],
     });
 
     return await this.fileAuditRepository.save(fileAudit);
