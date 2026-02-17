@@ -2,6 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
+import { AlarmAuditDto } from './dto/alarm-audit.dto';
 
 @Controller('audit')
 export class AuditController {
@@ -22,6 +23,16 @@ export class AuditController {
     const result = await this.auditService.auditFile(dto);
     return { 
       message: '文件审计记录成功', 
+      status: 'success',
+      data: result
+    };
+  }
+
+  @Post('alarm')
+  async auditAlarm(@Body() dto: AlarmAuditDto) {
+    const result = await this.auditService.auditAlarm(dto);
+    return { 
+      message: '告警审计记录成功', 
       status: 'success',
       data: result
     };

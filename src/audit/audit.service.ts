@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConnectionAudit, ConnAction, ConnType } from './entities/connection-audit.entity';
-import { FileAudit, FileAuditType } from './entities/file-audit.entity';
+import { ConnectionAudit } from './entities/connection-audit.entity';
+import { FileAudit } from './entities/file-audit.entity';
+import { AlarmAudit } from './entities/alarm-audit.entity';
 import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
+import { AlarmAuditDto } from './dto/alarm-audit.dto';
 
 @Injectable()
 export class AuditService {
@@ -13,6 +15,8 @@ export class AuditService {
     private readonly connectionAuditRepository: Repository<ConnectionAudit>,
     @InjectRepository(FileAudit)
     private readonly fileAuditRepository: Repository<FileAudit>,
+    @InjectRepository(AlarmAudit)
+    private readonly alarmAuditRepository: Repository<AlarmAudit>,
   ) {}
 
   async auditConnection(dto: ConnectionAuditDto): Promise<ConnectionAudit> {
@@ -46,5 +50,16 @@ export class AuditService {
     });
 
     return await this.fileAuditRepository.save(fileAudit);
+  }
+
+  async auditAlarm(dto: AlarmAuditDto): Promise<AlarmAudit> {
+    const alarmAudit = this.alarmAuditRepository.create({
+      deviceId: dto.id,
+      deviceUuid: dto.uuid,
+      typ: dto.typ,
+      info: dto.info,
+    });
+
+    return await this.alarmAuditRepository.save(alarmAudit);
   }
 }
