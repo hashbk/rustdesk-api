@@ -5,11 +5,12 @@ import { OidcService } from './oidc.service';
 import { OidcProvider } from './entities/oidc-provider.entity';
 import { OidcAuthState } from './entities/oidc-auth-state.entity';
 import { User } from '../user/entities/user.entity';
+import { UserToken } from '../user/entities/user-token.entity';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([OidcProvider, OidcAuthState, User]),
+    TypeOrmModule.forFeature([OidcProvider, OidcAuthState, User, UserToken]),
     AuthModule,
   ],
   controllers: [OidcController],

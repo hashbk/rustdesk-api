@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HeartbeatController } from './heartbeat.controller';
 import { HeartbeatService } from './heartbeat.service';
 import { Peer } from './entities/peer.entity';
+import { AccessiblePeer } from '../device-group/entities/accessible-peer.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Peer])],
+  imports: [TypeOrmModule.forFeature([Peer, AccessiblePeer])],
   controllers: [HeartbeatController],
-  providers: [HeartbeatService]
+  providers: [HeartbeatService],
+  exports: [HeartbeatService],
 })
 export class HeartbeatModule {}

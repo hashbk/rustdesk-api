@@ -2,11 +2,12 @@ import { Injectable, Logger, BadRequestException, UnauthorizedException } from '
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { JwtService } from '@nestjs/jwt';
 import { OidcProvider } from './entities/oidc-provider.entity';
 import { OidcAuthState, OidcAuthStatus } from './entities/oidc-auth-state.entity';
 import { User, UserInfo } from '../user/entities/user.entity';
+import { UserToken } from '../user/entities/user-token.entity';
 import { OidcAuthRequestDto } from './dto/oidc.dto';
-import { AuthService } from '../auth/auth.service';
 import * as bcrypt from 'bcryptjs';
 
 export interface OidcConfig {
@@ -42,6 +43,7 @@ export interface AuthBody {
 export class OidcService {
   private readonly logger = new Logger(OidcService.name);
   private readonly AUTH_CODE_EXPIRY_MINUTES = 3; // 授权码有效期 3 分钟
+  private readonly TOKEN_EXPIRY_DAYS = 30; // Token 有效期 30 天
 
   constructor(
     @InjectRepository(OidcProvider)
@@ -50,7 +52,9 @@ export class OidcService {
     private authStateRepository: Repository<OidcAuthState>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    private authService: AuthService,
+    @InjectRepository(UserToken)
+    private userTokenRepository: Repository<UserToken>,
+    private jwtService: JwtService,
   ) {}
 
   /**
@@ -395,7 +399,7 @@ export class OidcService {
   }
 
   /**
-   * 为用户生成 JWT token
+   * 为用户生成 JWT token 并保存到数据库
    */
   private async generateTokenForUser(user: User, deviceId?: string, deviceUuid?: string): Promise<string> {
     const payload = {
@@ -406,14 +410,22 @@ export class OidcService {
       deviceId,
     };
 
-    // 使用 AuthService 的方法生成 token
-    // 这里简化处理，实际应该调用 AuthService
-    const { JwtService } = require('@nestjs/jwt');
-    const jwtService = new JwtService({
-      secret: process.env.JWT_SECRET || 'rustdesk-api-secret-key-change-in-production',
-      signOptions: { expiresIn: '30d' },
+    const token = this.jwtService.sign(payload);
+
+    // 保存 Token 到数据库
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
+
+    const userToken = this.userTokenRepository.create({
+      userId: user.id,
+      token,
+      deviceId,
+      deviceUuid,
+      expiresAt,
     });
 
-    return jwtService.sign(payload);
+    await this.userTokenRepository.save(userToken);
+
+    return token;
   }
 }

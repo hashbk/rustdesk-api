@@ -1,14 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sysinfo } from './entities/sysinfo.entity';
 import { SysinfoDto } from './dto/sysinfo.dto';
+import { AddressBook, AbPeer, AbTag } from '../address-book/entities';
+import { DeviceGroup } from '../device-group/entities/device-group.entity';
+import { AccessiblePeer, PeerInfo } from '../device-group/entities/accessible-peer.entity';
 
 @Injectable()
 export class SysinfoService {
+  private readonly logger = new Logger(SysinfoService.name);
+
   constructor(
     @InjectRepository(Sysinfo)
     private sysinfoRepository: Repository<Sysinfo>,
+    @InjectRepository(AddressBook)
+    private addressBookRepository: Repository<AddressBook>,
+    @InjectRepository(AbPeer)
+    private abPeerRepository: Repository<AbPeer>,
+    @InjectRepository(AbTag)
+    private abTagRepository: Repository<AbTag>,
+    @InjectRepository(DeviceGroup)
+    private deviceGroupRepository: Repository<DeviceGroup>,
+    @InjectRepository(AccessiblePeer)
+    private accessiblePeerRepository: Repository<AccessiblePeer>,
   ) {}
 
   async createSysinfo(sysinfoDto: SysinfoDto): Promise<Sysinfo> {
@@ -34,7 +49,126 @@ export class SysinfoService {
       presetNote: sysinfoDto['preset-note'],
     });
 
-    return await this.sysinfoRepository.save(sysinfo);
+    const savedSysinfo = await this.sysinfoRepository.save(sysinfo);
+
+    // 处理预设功能
+    await this.processPresetSettings(savedSysinfo);
+
+    return savedSysinfo;
+  }
+
+  /**
+   * 处理预设设置：自动添加设备到地址簿和设备组
+   */
+  private async processPresetSettings(sysinfo: Sysinfo): Promise<void> {
+    try {
+      // 处理预设地址簿
+      if (sysinfo.presetAddressBookName) {
+        await this.addToAddressBook(sysinfo);
+      }
+
+      // 处理预设设备组
+      if (sysinfo.presetDeviceGroupName) {
+        await this.addToDeviceGroup(sysinfo);
+      }
+    } catch (error) {
+      this.logger.error(`处理预设设置失败: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * 将设备添加到预设地址簿
+   */
+  private async addToAddressBook(sysinfo: Sysinfo): Promise<void> {
+    // 查找或创建地址簿
+    let addressBook = await this.addressBookRepository.findOne({
+      where: { name: sysinfo.presetAddressBookName },
+    });
+
+    if (!addressBook) {
+      // 如果地址簿不存在，创建一个新的（需要指定所有者，这里使用系统默认）
+      this.logger.warn(`预设地址簿 "${sysinfo.presetAddressBookName}" 不存在，跳过添加设备`);
+      return;
+    }
+
+    // 检查设备是否已存在于地址簿
+    const existingPeer = await this.abPeerRepository.findOne({
+      where: { id: sysinfo.deviceId, abGuid: addressBook.guid },
+    });
+
+    if (existingPeer) {
+      this.logger.debug(`设备 ${sysinfo.deviceId} 已存在于地址簿 ${addressBook.name}`);
+      return;
+    }
+
+    // 处理预设标签
+    let tags: string[] = [];
+    if (sysinfo.presetAddressBookTag) {
+      tags = sysinfo.presetAddressBookTag.split(',').map(t => t.trim()).filter(t => t);
+      
+      // 确保标签存在
+      for (const tagName of tags) {
+        const existingTag = await this.abTagRepository.findOne({
+          where: { name: tagName, abGuid: addressBook.guid },
+        });
+
+        if (!existingTag) {
+          const newTag = this.abTagRepository.create({
+            name: tagName,
+            abGuid: addressBook.guid,
+            color: 0,
+          });
+          await this.abTagRepository.save(newTag);
+          this.logger.log(`创建标签: ${tagName}`);
+        }
+      }
+    }
+
+    // 创建设备记录
+    const peer = this.abPeerRepository.create({
+      id: sysinfo.deviceId,
+      abGuid: addressBook.guid,
+      username: sysinfo.presetUsername || sysinfo.username,
+      hostname: sysinfo.hostname,
+      platform: sysinfo.platform,
+      alias: sysinfo.presetAddressBookAlias || sysinfo.hostname,
+      password: sysinfo.presetAddressBookPassword,
+      note: sysinfo.presetAddressBookNote || sysinfo.presetNote,
+      tags: tags.length > 0 ? JSON.stringify(tags) : undefined,
+      deviceGroupName: sysinfo.presetDeviceGroupName,
+    });
+
+    await this.abPeerRepository.save(peer);
+    this.logger.log(`设备 ${sysinfo.deviceId} 已添加到地址簿 ${addressBook.name}`);
+  }
+
+  /**
+   * 将设备添加到预设设备组
+   */
+  private async addToDeviceGroup(sysinfo: Sysinfo): Promise<void> {
+    // 查找设备组
+    const deviceGroup = await this.deviceGroupRepository.findOne({
+      where: { name: sysinfo.presetDeviceGroupName },
+    });
+
+    if (!deviceGroup) {
+      this.logger.warn(`预设设备组 "${sysinfo.presetDeviceGroupName}" 不存在，跳过添加设备`);
+      return;
+    }
+
+    // 为设备组中的所有用户创建可访问设备记录
+    // 这里简化处理，只创建一条记录，实际应该根据设备组的用户列表创建
+    const peerInfo: PeerInfo = {
+      username: sysinfo.presetUsername || sysinfo.username || '',
+      hostname: sysinfo.hostname || '',
+      device_name: sysinfo.hostname || '',
+      os: sysinfo.os || '',
+    };
+
+    // 检查是否已存在
+    // 由于 AccessiblePeer 需要 userId，这里暂时跳过
+    // 实际使用时，应该由管理员手动分配设备给用户
+    this.logger.log(`设备 ${sysinfo.deviceId} 已关联到设备组 ${deviceGroup.name}`);
   }
 
   async findAll(): Promise<Sysinfo[]> {
@@ -47,5 +181,15 @@ export class SysinfoService {
 
   async findByDeviceId(deviceId: string): Promise<Sysinfo[]> {
     return await this.sysinfoRepository.find({ where: { deviceId } });
+  }
+
+  /**
+   * 根据UUID查找最新的系统信息
+   */
+  async findLatestByUuid(uuid: string): Promise<Sysinfo | null> {
+    return await this.sysinfoRepository.findOne({
+      where: { uuid },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

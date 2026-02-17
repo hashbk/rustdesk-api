@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req } from '@ne
 import { AddressBookService } from './address-book.service';
 import { AddPeerDto, UpdatePeerDto, DeletePeersDto, AddTagDto, UpdateTagDto, RenameTagDto, DeleteTagsDto, PaginationDto, PeersQueryDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ShareRule } from './entities/shared-address-book.entity';
 
 @Controller('ab')
 export class AddressBookController {
@@ -27,55 +28,76 @@ export class AddressBookController {
 
   // 获取地址簿中的设备列表
   @Post('peers')
-  getPeers(@Query() query: PeersQueryDto) {
-    return this.addressBookService.getPeers(query);
+  getPeers(@Query() query: PeersQueryDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.getPeers(query, String(userId));
   }
 
   // 获取地址簿标签列表
   @Post('tags/:guid')
-  getTags(@Param('guid') guid: string) {
-    return this.addressBookService.getTags(guid);
+  getTags(@Param('guid') guid: string, @CurrentUser('id') userId: number) {
+    return this.addressBookService.getTags(guid, String(userId));
   }
 
   // 添加设备到地址簿
   @Post('peer/add/:guid')
-  addPeer(@Param('guid') guid: string, @Body() dto: AddPeerDto) {
-    return this.addressBookService.addPeer(guid, dto);
+  addPeer(@Param('guid') guid: string, @Body() dto: AddPeerDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.addPeer(guid, dto, String(userId));
   }
 
   // 更新设备信息
   @Put('peer/update/:guid')
-  updatePeer(@Param('guid') guid: string, @Body() dto: UpdatePeerDto) {
-    return this.addressBookService.updatePeer(guid, dto);
+  updatePeer(@Param('guid') guid: string, @Body() dto: UpdatePeerDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.updatePeer(guid, dto, String(userId));
   }
 
   // 删除设备
   @Delete('peer/:guid')
-  deletePeers(@Param('guid') guid: string, @Body() ids: string[]) {
-    return this.addressBookService.deletePeers(guid, ids);
+  deletePeers(@Param('guid') guid: string, @Body() ids: string[], @CurrentUser('id') userId: number) {
+    return this.addressBookService.deletePeers(guid, ids, String(userId));
   }
 
   // 添加标签
   @Post('tag/add/:guid')
-  addTag(@Param('guid') guid: string, @Body() dto: AddTagDto) {
-    return this.addressBookService.addTag(guid, dto);
+  addTag(@Param('guid') guid: string, @Body() dto: AddTagDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.addTag(guid, dto, String(userId));
   }
 
   // 重命名标签
   @Put('tag/rename/:guid')
-  renameTag(@Param('guid') guid: string, @Body() dto: RenameTagDto) {
-    return this.addressBookService.renameTag(guid, dto);
+  renameTag(@Param('guid') guid: string, @Body() dto: RenameTagDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.renameTag(guid, dto, String(userId));
   }
 
   // 更新标签颜色
   @Put('tag/update/:guid')
-  updateTag(@Param('guid') guid: string, @Body() dto: UpdateTagDto) {
-    return this.addressBookService.updateTag(guid, dto);
+  updateTag(@Param('guid') guid: string, @Body() dto: UpdateTagDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.updateTag(guid, dto, String(userId));
   }
 
   // 删除标签
   @Delete('tag/:guid')
-  deleteTags(@Param('guid') guid: string, @Body() names: string[]) {
-    return this.addressBookService.deleteTags(guid, names);
+  deleteTags(@Param('guid') guid: string, @Body() names: string[], @CurrentUser('id') userId: number) {
+    return this.addressBookService.deleteTags(guid, names, String(userId));
+  }
+
+  // 共享地址簿
+  @Post('share/:guid')
+  shareAddressBook(
+    @Param('guid') guid: string,
+    @Body('targetUserId') targetUserId: string,
+    @Body('rule') rule: ShareRule,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.addressBookService.shareAddressBook(guid, targetUserId, rule, String(userId));
+  }
+
+  // 取消共享地址簿
+  @Delete('share/:guid')
+  unshareAddressBook(
+    @Param('guid') guid: string,
+    @Body('targetUserId') targetUserId: string,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.addressBookService.unshareAddressBook(guid, targetUserId, String(userId));
   }
 }

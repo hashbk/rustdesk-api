@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +17,48 @@ export class AddressBookService {
     @InjectRepository(SharedAddressBook)
     private sharedAddressBookRepository: Repository<SharedAddressBook>,
   ) {}
+
+  /**
+   * 检查用户是否有权限访问地址簿
+   * @param abGuid 地址簿GUID
+   * @param userId 用户ID
+   * @param requiredRule 需要的权限级别
+   */
+  private async checkAddressBookAccess(
+    abGuid: string,
+    userId: string,
+    requiredRule: ShareRule = ShareRule.READ,
+  ): Promise<AddressBook> {
+    const addressBook = await this.addressBookRepository.findOne({
+      where: { guid: abGuid },
+    });
+
+    if (!addressBook) {
+      throw new NotFoundException('地址簿不存在');
+    }
+
+    // 如果是所有者，拥有完全权限
+    if (addressBook.owner === userId) {
+      return addressBook;
+    }
+
+    // 检查共享权限
+    const shared = await this.sharedAddressBookRepository.findOne({
+      where: { abGuid, sharedWith: userId },
+    });
+
+    if (!shared) {
+      throw new ForbiddenException('无权访问此地址簿');
+    }
+
+    // 检查权限级别
+    if (shared.rule < requiredRule) {
+      const requiredPermission = requiredRule === ShareRule.READ_WRITE ? '读写' : '完全控制';
+      throw new ForbiddenException(`需要${requiredPermission}权限`);
+    }
+
+    return addressBook;
+  }
 
   // 获取地址簿设置
   async getSettings() {
@@ -68,7 +110,7 @@ export class AddressBookService {
   }
 
   // 获取地址簿中的设备列表
-  async getPeers(query: PeersQueryDto) {
+  async getPeers(query: PeersQueryDto, userId?: string) {
     const { current = 1, pageSize = 100, ab } = query;
     const skip = (current - 1) * pageSize;
 
@@ -78,6 +120,11 @@ export class AddressBookService {
 
     if (!addressBook) {
       throw new NotFoundException('地址簿不存在');
+    }
+
+    // 如果提供了用户ID，验证访问权限
+    if (userId) {
+      await this.checkAddressBookAccess(ab, userId, ShareRule.READ);
     }
 
     const [peers, total] = await this.abPeerRepository.findAndCount({
@@ -108,7 +155,12 @@ export class AddressBookService {
   }
 
   // 获取地址簿标签列表
-  async getTags(guid: string) {
+  async getTags(guid: string, userId?: string) {
+    // 如果提供了用户ID，验证访问权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ);
+    }
+
     const tags = await this.abTagRepository.find({
       where: { abGuid: guid },
     });
@@ -120,7 +172,12 @@ export class AddressBookService {
   }
 
   // 添加设备到地址簿
-  async addPeer(guid: string, dto: AddPeerDto) {
+  async addPeer(guid: string, dto: AddPeerDto, userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     const addressBook = await this.addressBookRepository.findOne({
       where: { guid },
     });
@@ -171,7 +228,12 @@ export class AddressBookService {
   }
 
   // 更新设备信息
-  async updatePeer(guid: string, dto: UpdatePeerDto) {
+  async updatePeer(guid: string, dto: UpdatePeerDto, userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     const peer = await this.abPeerRepository.findOne({
       where: { id: dto.id, abGuid: guid },
     });
@@ -202,7 +264,12 @@ export class AddressBookService {
   }
 
   // 删除设备
-  async deletePeers(guid: string, ids: string[]) {
+  async deletePeers(guid: string, ids: string[], userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     if (!ids || ids.length === 0) {
       throw new BadRequestException('请提供要删除的设备ID');
     }
@@ -216,7 +283,12 @@ export class AddressBookService {
   }
 
   // 添加标签
-  async addTag(guid: string, dto: AddTagDto) {
+  async addTag(guid: string, dto: AddTagDto, userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     const addressBook = await this.addressBookRepository.findOne({
       where: { guid },
     });
@@ -244,7 +316,12 @@ export class AddressBookService {
   }
 
   // 重命名标签
-  async renameTag(guid: string, dto: RenameTagDto) {
+  async renameTag(guid: string, dto: RenameTagDto, userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     const tag = await this.abTagRepository.findOne({
       where: { name: dto.old, abGuid: guid },
     });
@@ -284,7 +361,12 @@ export class AddressBookService {
   }
 
   // 更新标签颜色
-  async updateTag(guid: string, dto: UpdateTagDto) {
+  async updateTag(guid: string, dto: UpdateTagDto, userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     const tag = await this.abTagRepository.findOne({
       where: { name: dto.name, abGuid: guid },
     });
@@ -298,7 +380,12 @@ export class AddressBookService {
   }
 
   // 删除标签
-  async deleteTags(guid: string, names: string[]) {
+  async deleteTags(guid: string, names: string[], userId?: string) {
+    // 如果提供了用户ID，验证写权限
+    if (userId) {
+      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+    }
+
     if (!names || names.length === 0) {
       throw new BadRequestException('请提供要删除的标签名');
     }
@@ -325,5 +412,51 @@ export class AddressBookService {
     }
 
     return {};
+  }
+
+  /**
+   * 共享地址簿给其他用户
+   */
+  async shareAddressBook(
+    abGuid: string,
+    targetUserId: string,
+    rule: ShareRule,
+    ownerUserId: string,
+  ) {
+    // 验证所有权
+    const addressBook = await this.checkAddressBookAccess(abGuid, ownerUserId, ShareRule.FULL_CONTROL);
+
+    // 检查是否已共享
+    let shared = await this.sharedAddressBookRepository.findOne({
+      where: { abGuid, sharedWith: targetUserId },
+    });
+
+    if (shared) {
+      shared.rule = rule;
+    } else {
+      shared = this.sharedAddressBookRepository.create({
+        abGuid,
+        sharedWith: targetUserId,
+        rule,
+      });
+    }
+
+    await this.sharedAddressBookRepository.save(shared);
+    return { message: '共享成功' };
+  }
+
+  /**
+   * 取消共享地址簿
+   */
+  async unshareAddressBook(abGuid: string, targetUserId: string, ownerUserId: string) {
+    // 验证所有权
+    await this.checkAddressBookAccess(abGuid, ownerUserId, ShareRule.FULL_CONTROL);
+
+    await this.sharedAddressBookRepository.delete({
+      abGuid,
+      sharedWith: targetUserId,
+    });
+
+    return { message: '取消共享成功' };
   }
 }
