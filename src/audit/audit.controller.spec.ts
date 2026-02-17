@@ -4,6 +4,7 @@ import { AuditService } from './audit.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConnectionAudit } from './entities/connection-audit.entity';
 import { FileAudit } from './entities/file-audit.entity';
+import { AlarmAudit } from './entities/alarm-audit.entity';
 
 describe('AuditController', () => {
   let controller: AuditController;
@@ -38,9 +39,19 @@ describe('AuditController', () => {
     createdAt: new Date(),
   };
 
+  const mockAlarmAudit = {
+    id: 1,
+    deviceId: 'device123',
+    deviceUuid: 'uuid123',
+    typ: 0,
+    info: { ip: '192.168.1.1', reason: 'IP whitelist violation' },
+    createdAt: new Date(),
+  };
+
   const mockAuditService = {
     auditConnection: jest.fn().mockResolvedValue(mockConnectionAudit),
     auditFile: jest.fn().mockResolvedValue(mockFileAudit),
+    auditAlarm: jest.fn().mockResolvedValue(mockAlarmAudit),
   };
 
   beforeEach(async () => {
@@ -57,6 +68,13 @@ describe('AuditController', () => {
         },
         {
           provide: getRepositoryToken(FileAudit),
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(AlarmAudit),
           useValue: {
             create: jest.fn(),
             save: jest.fn(),
@@ -126,6 +144,28 @@ describe('AuditController', () => {
         data: mockFileAudit,
       });
       expect(service.auditFile).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe('auditAlarm', () => {
+    it('should audit an alarm successfully', async () => {
+      const dto = {
+        id: 'device123',
+        uuid: 'uuid123',
+        typ: 0,
+        info: { ip: '192.168.1.1', reason: 'IP whitelist violation' },
+      };
+
+      jest.spyOn(service, 'auditAlarm').mockResolvedValue(mockAlarmAudit);
+
+      const result = await controller.auditAlarm(dto);
+
+      expect(result).toEqual({
+        message: '告警审计记录成功',
+        status: 'success',
+        data: mockAlarmAudit,
+      });
+      expect(service.auditAlarm).toHaveBeenCalledWith(dto);
     });
   });
 });

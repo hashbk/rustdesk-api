@@ -15,6 +15,7 @@
 
 - **连接审计** (`/audit/conn`): 记录设备连接、断开和授权事件
 - **文件审计** (`/audit/file`): 记录文件传输活动（发送/接收）
+- **告警审计** (`/audit/alarm`): 记录安全告警事件
 
 ## 数据库表结构
 
@@ -48,6 +49,18 @@
 - `clientName`: 客户端名称
 - `fileCount`: 文件总数
 - `files`: 文件列表 (最多10个，按大小排序) - JSON格式: [['文件名', 大小], ...]
+- `createdAt`: 创建时间
+
+### alarm_audits (告警审计表)
+- `id`: 主键
+- `deviceId`: 设备ID
+- `deviceUuid`: 设备UUID (base64编码)
+- `typ`: 告警类型 (0-6)
+  - 0: IP白名单违规
+  - 1: 超过30次尝试
+  - 2: 1分钟内6次尝试
+  - 6: IPv6前缀尝试过多
+- `info`: 告警详细信息 (JSON格式)
 - `createdAt`: 创建时间
 
 ## API 接口
@@ -151,6 +164,54 @@
 }
 ```
 
+### 3. 告警审计接口
+
+**端点**: `POST /audit/alarm`
+
+**请求体**:
+```json
+{
+  "id": "设备ID",
+  "uuid": "设备UUID(base64编码)",
+  "typ": 0,
+  "info": {
+    "ip": "192.168.1.1",
+    "reason": "IP whitelist violation"
+  }
+}
+```
+
+**告警类型**:
+- `0`: IP白名单违规
+- `1`: 超过30次尝试
+- `2`: 1分钟内6次尝试
+- `6`: IPv6前缀尝试过多
+
+**触发场景**:
+- IP白名单违规检测
+- 登录尝试次数超限
+- 短时间内多次尝试
+- IPv6前缀异常访问
+
+**响应**:
+```json
+{
+  "message": "告警审计记录成功",
+  "status": "success",
+  "data": {
+    "id": 1,
+    "deviceId": "设备ID",
+    "deviceUuid": "设备UUID",
+    "typ": 0,
+    "info": {
+      "ip": "192.168.1.1",
+      "reason": "IP whitelist violation"
+    },
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
 ## 使用示例
 
 ### 使用 curl 测试连接审计
@@ -190,6 +251,22 @@ curl -X POST http://localhost:3000/audit/file \
         ["file1.txt", 1024],
         ["file2.txt", 2048]
       ]
+    }
+  }'
+```
+
+### 使用 curl 测试告警审计
+
+```bash
+curl -X POST http://localhost:3000/audit/alarm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "device123",
+    "uuid": "uuid123",
+    "typ": 0,
+    "info": {
+      "ip": "192.168.1.1",
+      "reason": "IP whitelist violation"
     }
   }'
 ```
