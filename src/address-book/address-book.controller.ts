@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req } from '@nestjs/common';
 import { AddressBookService } from './address-book.service';
 import { AddPeerDto, UpdatePeerDto, DeletePeersDto, AddTagDto, UpdateTagDto, RenameTagDto, DeleteTagsDto, PaginationDto, PeersQueryDto } from './dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('ab')
 export class AddressBookController {
@@ -14,17 +15,14 @@ export class AddressBookController {
 
   // 获取个人地址簿GUID
   @Post('personal')
-  getPersonalAddressBook(@Req() req: any) {
-    // 暂时使用固定用户ID，后续集成认证后从token获取
-    const userId = req.headers['x-user-id'] || 'default-user';
-    return this.addressBookService.getPersonalAddressBook(userId);
+  getPersonalAddressBook(@CurrentUser('id') userId: number) {
+    return this.addressBookService.getPersonalAddressBook(String(userId));
   }
 
   // 获取共享地址簿列表
   @Post('shared/profiles')
-  getSharedAddressBooks(@Query() query: PaginationDto, @Req() req: any) {
-    const userId = req.headers['x-user-id'] || 'default-user';
-    return this.addressBookService.getSharedAddressBooks(userId, query);
+  getSharedAddressBooks(@Query() query: PaginationDto, @CurrentUser('id') userId: number) {
+    return this.addressBookService.getSharedAddressBooks(String(userId), query);
   }
 
   // 获取地址簿中的设备列表

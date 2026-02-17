@@ -1,9 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller()
 export class DeviceGroupController {
   @Get('device-group/accessible')
-  getAccessibleDeviceGroup() {
+  getAccessibleDeviceGroup(@CurrentUser('id') userId: number) {
     return {
       message: '获取可访问的设备群组接口',
       data: [
@@ -14,7 +15,7 @@ export class DeviceGroupController {
   }
 
   @Get('peers')
-  getPeers() {
+  getPeers(@CurrentUser('id') userId: number) {
     return {
       message: '获取机器列表接口',
       data: [

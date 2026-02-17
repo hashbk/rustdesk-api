@@ -3,11 +3,13 @@ import { AuditService } from './audit.service';
 import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
+  @Public()
   @Post('conn')
   async auditConnection(@Body() dto: ConnectionAuditDto) {
     const result = await this.auditService.auditConnection(dto);
@@ -18,6 +20,7 @@ export class AuditController {
     };
   }
 
+  @Public()
   @Post('file')
   async auditFile(@Body() dto: FileAuditDto) {
     const result = await this.auditService.auditFile(dto);
@@ -28,6 +31,7 @@ export class AuditController {
     };
   }
 
+  @Public()
   @Post('alarm')
   async auditAlarm(@Body() dto: AlarmAuditDto) {
     const result = await this.auditService.auditAlarm(dto);

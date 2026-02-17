@@ -1,29 +1,52 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
+import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
 
-@Controller()
+@Controller('api')
 export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
   @Post('login')
-  login() {
-    return {
-      message: '登录接口',
-      data: { token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', expiresIn: 7200 }
-    };
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
-  @Get('login-options')
-  getLoginOptions() {
-    return {
-      message: '获取登录选项接口',
-      data: {
-        methods: ['password', 'sms', 'oidc'],
-        rememberMe: true,
-        captchaEnabled: false
-      }
-    };
+  @Public()
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Post('logout')
-  logout() {
-    return { message: '登出成功', success: true };
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @CurrentUser('id') userId: number,
+    @Body() logoutDto: LogoutDto,
+  ) {
+    await this.authService.logout(userId, logoutDto);
+    return { message: '登出成功' };
+  }
+
+  @Post('currentUser')
+  @HttpCode(HttpStatus.OK)
+  async getCurrentUser(
+    @CurrentUser('id') userId: number,
+    @Body() currentUserDto: CurrentUserDto,
+  ) {
+    return this.authService.getCurrentUser(userId, currentUserDto);
+  }
+
+  @Public()
+  @Get('login-options')
+  async getLoginOptions() {
+    // 返回支持的登录方式
+    return [
+      'oidc/google',
+      'oidc/github',
+    ];
   }
 }

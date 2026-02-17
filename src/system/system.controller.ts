@@ -1,11 +1,13 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { SysinfoService } from './sysinfo.service';
 import { SysinfoDto } from './dto/sysinfo.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller()
 export class SystemController {
   constructor(private readonly sysinfoService: SysinfoService) {}
 
+  @Public()
   @Post('sysinfo')
   async submitSysInfo(@Body() sysinfoDto: SysinfoDto) {
     const result = await this.sysinfoService.createSysinfo(sysinfoDto);
@@ -16,6 +18,7 @@ export class SystemController {
     };
   }
 
+  @Public()
   @Post('sysinfo_ver')
   getSysInfoVer() {
     return {
