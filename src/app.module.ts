@@ -15,13 +15,17 @@ import { Peer } from './heartbeat/entities/peer.entity';
 import { ConnectionAudit } from './audit/entities/connection-audit.entity';
 import { FileAudit } from './audit/entities/file-audit.entity';
 import { AlarmAudit } from './audit/entities/alarm-audit.entity';
+import { AddressBook } from './address-book/entities/address-book.entity';
+import { AbPeer } from './address-book/entities/ab-peer.entity';
+import { AbTag } from './address-book/entities/ab-tag.entity';
+import { SharedAddressBook } from './address-book/entities/shared-address-book.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AbPeer, AbTag, SharedAddressBook],
       synchronize: true,
       logging: false,
     }),
