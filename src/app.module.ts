@@ -11,13 +11,14 @@ import { AuthModule } from './auth/auth.module';
 import { OidcModule } from './oidc/oidc.module';
 import { SystemModule } from './system/system.module';
 import { Sysinfo } from './system/entities/sysinfo.entity';
+import { Peer } from './heartbeat/entities/peer.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo],
+      entities: [Sysinfo, Peer],
       synchronize: true,
       logging: false,
     }),
