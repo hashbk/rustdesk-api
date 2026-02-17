@@ -7,6 +7,9 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
+  // 设置全局路由前缀
+  app.setGlobalPrefix('api');
+
   // 启用 CORS
   app.enableCors({
     origin: true,
@@ -24,7 +27,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Application is running on: http://localhost:${port}/api`);
   logger.log(`JWT Secret: ${process.env.JWT_SECRET ? 'configured' : 'using default'}`);
 }
 bootstrap();

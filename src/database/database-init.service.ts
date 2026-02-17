@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from '../user/entities/user.entity';
 import { OidcProvider } from '../oidc/entities/oidc-provider.entity';
+import { OidcAuthState } from '../oidc/entities/oidc-auth-state.entity';
 
 @Injectable()
 export class DatabaseInitService implements OnModuleInit {
@@ -14,11 +15,14 @@ export class DatabaseInitService implements OnModuleInit {
     private userRepository: Repository<User>,
     @InjectRepository(OidcProvider)
     private oidcProviderRepository: Repository<OidcProvider>,
+    @InjectRepository(OidcAuthState)
+    private oidcAuthStateRepository: Repository<OidcAuthState>,
   ) {}
 
   async onModuleInit() {
     await this.createDefaultAdmin();
     await this.createDefaultOidcProviders();
+    await this.cleanupExpiredAuthStates();
   }
 
   /**
@@ -92,6 +96,21 @@ export class DatabaseInitService implements OnModuleInit {
         await this.oidcProviderRepository.save(provider);
         this.logger.log(`Default OIDC provider created: ${providerData.name}`);
       }
+    }
+  }
+
+  /**
+   * 清理过期的授权状态
+   */
+  private async cleanupExpiredAuthStates() {
+    const result = await this.oidcAuthStateRepository
+      .createQueryBuilder()
+      .delete()
+      .where('expiresAt < :now', { now: new Date() })
+      .execute();
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(`Cleaned up ${result.affected} expired OIDC auth states`);
     }
   }
 }

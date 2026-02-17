@@ -1,42 +1,92 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Res, UseGuards, HttpStatus } from '@nestjs/common';
 import { OidcService } from './oidc.service';
+import { OidcAuthRequestDto, OidcCancelDto, OidcProviderDto } from './dto/oidc.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('api')
+@Controller()
 export class OidcController {
   constructor(private readonly oidcService: OidcService) {}
 
+  /**
+   * 获取登录选项
+   * GET /api/login-options
+   */
   @Public()
   @Get('login-options')
   async getLoginOptions() {
     return this.oidcService.getLoginOptions();
   }
 
+  /**
+   * 请求 OIDC 授权
+   * POST /api/oidc/auth
+   */
   @Public()
-  @Post('oidc/:provider/auth')
-  async getAuthUrl(
-    @Param('provider') provider: string,
-    @Body('redirect_uri') redirectUri: string,
-    @Body('state') state?: string,
-  ) {
-    const result = await this.oidcService.getAuthUrl(provider, redirectUri, state);
-    return {
-      auth_url: result.authUrl,
-      state: result.state,
-    };
+  @Post('oidc/auth')
+  async requestAuth(@Body() authRequest: OidcAuthRequestDto) {
+    return this.oidcService.requestAuth(authRequest);
   }
 
+  /**
+   * 查询 OIDC 授权状态
+   * GET /api/oidc/auth-query?code=xxx&id=xxx&uuid=xxx
+   */
   @Public()
-  @Post('oidc/:provider/callback')
+  @Get('oidc/auth-query')
+  async queryAuth(
+    @Query('code') code: string,
+    @Query('id') deviceId: string,
+    @Query('uuid') deviceUuid: string,
+  ) {
+    return this.oidcService.queryAuth(code, deviceId, deviceUuid);
+  }
+
+  /**
+   * OIDC 回调接口
+   * GET /api/oidc/callback?code=xxx&state=xxx
+   */
+  @Public()
+  @Get('oidc/callback')
   async handleCallback(
-    @Param('provider') provider: string,
-    @Body('code') code: string,
-    @Body('redirect_uri') redirectUri: string,
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: any,
   ) {
-    return this.oidcService.handleCallback(provider, code, redirectUri);
+    try {
+      const html = await this.oidcService.handleCallback(code, state);
+      res.status(HttpStatus.OK).send(html);
+    } catch (error) {
+      res.status(HttpStatus.BAD_REQUEST).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>授权失败</title></head>
+        <body>
+          <h1>授权失败</h1>
+          <p>${error.message}</p>
+        </body>
+        </html>
+      `);
+    }
   }
 
+  /**
+   * 取消授权
+   * POST /api/oidc/cancel
+   */
+  @Public()
+  @Post('oidc/cancel')
+  async cancelAuth(@Body() cancelDto: OidcCancelDto) {
+    await this.oidcService.cancelAuth(cancelDto.code);
+    return { message: '已取消授权' };
+  }
+
+  // ============ 管理员接口 ============
+
+  /**
+   * 获取所有 OIDC 提供商
+   * GET /api/oidc/providers
+   */
   @Get('oidc/providers')
   async getAllProviders(
     @CurrentUser('isAdmin') isAdmin: boolean,
@@ -59,9 +109,13 @@ export class OidcController {
     }));
   }
 
+  /**
+   * 创建 OIDC 提供商
+   * POST /api/oidc/providers
+   */
   @Post('oidc/providers')
   async createProvider(
-    @Body() providerData: any,
+    @Body() providerData: OidcProviderDto,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     if (!isAdmin) {
@@ -77,10 +131,14 @@ export class OidcController {
     };
   }
 
+  /**
+   * 更新 OIDC 提供商
+   * POST /api/oidc/providers/:name
+   */
   @Post('oidc/providers/:name')
   async updateProvider(
     @Param('name') name: string,
-    @Body() providerData: any,
+    @Body() providerData: OidcProviderDto,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     if (!isAdmin) {
@@ -100,6 +158,10 @@ export class OidcController {
     };
   }
 
+  /**
+   * 删除 OIDC 提供商
+   * POST /api/oidc/providers/:name/delete
+   */
   @Post('oidc/providers/:name/delete')
   async deleteProvider(
     @Param('name') name: string,

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { User, UserStatus } from '../user/entities/user.entity';
+import { User, UserStatus, UserInfo } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
 import { UserDevice } from '../user/entities/user-device.entity';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
@@ -24,11 +24,12 @@ export interface LoginResponse {
   secret?: string;
   user?: {
     name: string;
-    email: string;
-    note: string;
-    verifier?: string;
+    email?: string;
+    note?: string;
     status: number;
+    info?: UserInfo;
     is_admin: boolean;
+    third_auth_type?: string;
   };
 }
 
@@ -112,6 +113,8 @@ export class AuthService {
       .where('user.username = :username OR user.email = :email', { username, email: username })
       .addSelect('user.password')
       .addSelect('user.tfaSecret')
+      .addSelect('user.info')
+      .addSelect('user.thirdAuthType')
       .getOne();
 
     if (!user) {
@@ -159,10 +162,12 @@ export class AuthService {
       type: 'access_token',
       user: {
         name: user.username,
-        email: user.email,
-        note: user.note || '',
+        email: user.email || undefined,
+        note: user.note || undefined,
         status: user.status,
+        info: user.getUserInfo(),
         is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
       },
     };
   }
@@ -213,10 +218,12 @@ export class AuthService {
       type: 'access_token',
       user: {
         name: user.username,
-        email: user.email,
-        note: user.note || '',
+        email: user.email || undefined,
+        note: user.note || undefined,
         status: user.status,
+        info: user.getUserInfo(),
         is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
       },
     };
   }
@@ -256,10 +263,12 @@ export class AuthService {
       type: 'access_token',
       user: {
         name: user.username,
-        email: user.email,
-        note: user.note || '',
+        email: user.email || undefined,
+        note: user.note || undefined,
         status: user.status,
+        info: user.getUserInfo(),
         is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
       },
     };
   }
@@ -268,9 +277,12 @@ export class AuthService {
    * 获取当前用户信息
    */
   async getCurrentUser(userId: number, currentUserDto?: CurrentUserDto): Promise<any> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id = :id', { id: userId })
+      .addSelect('user.info')
+      .addSelect('user.thirdAuthType')
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('用户不存在');
@@ -278,11 +290,13 @@ export class AuthService {
 
     return {
       name: user.username,
-      email: user.email,
-      note: user.note || '',
+      email: user.email || undefined,
+      note: user.note || undefined,
       verifier: user.verifier || undefined,
       status: user.status,
+      info: user.getUserInfo(),
       is_admin: user.isAdmin,
+      third_auth_type: user.thirdAuthType || undefined,
     };
   }
 
@@ -385,7 +399,7 @@ export class AuthService {
         deviceId,
         deviceUuid,
         deviceName: deviceInfo?.name,
-        platform: deviceInfo?.platform,
+        platform: deviceInfo?.os || deviceInfo?.platform,
         osVersion: deviceInfo?.osVersion,
         deviceInfo: deviceInfo ? JSON.stringify(deviceInfo) : undefined,
       });

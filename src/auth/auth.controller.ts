@@ -4,7 +4,7 @@ import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 
-@Controller('api')
+@Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
