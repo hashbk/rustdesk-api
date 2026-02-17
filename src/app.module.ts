@@ -12,13 +12,15 @@ import { OidcModule } from './oidc/oidc.module';
 import { SystemModule } from './system/system.module';
 import { Sysinfo } from './system/entities/sysinfo.entity';
 import { Peer } from './heartbeat/entities/peer.entity';
+import { ConnectionAudit } from './audit/entities/connection-audit.entity';
+import { FileAudit } from './audit/entities/file-audit.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit],
       synchronize: true,
       logging: false,
     }),

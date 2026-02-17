@@ -1,14 +1,29 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
+import { AuditService } from './audit.service';
+import { ConnectionAuditDto } from './dto/connection-audit.dto';
+import { FileAuditDto } from './dto/file-audit.dto';
 
 @Controller('audit')
 export class AuditController {
+  constructor(private readonly auditService: AuditService) {}
+
   @Post('conn')
-  auditConnection() {
-    return { message: '审计连接接口', status: 'success' };
+  async auditConnection(@Body() dto: ConnectionAuditDto) {
+    const result = await this.auditService.auditConnection(dto);
+    return { 
+      message: '连接审计记录成功', 
+      status: 'success',
+      data: result
+    };
   }
 
   @Post('file')
-  auditFile() {
-    return { message: '审计文件接口', status: 'success' };
+  async auditFile(@Body() dto: FileAuditDto) {
+    const result = await this.auditService.auditFile(dto);
+    return { 
+      message: '文件审计记录成功', 
+      status: 'success',
+      data: result
+    };
   }
 }
