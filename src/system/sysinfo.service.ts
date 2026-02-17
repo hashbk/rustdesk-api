@@ -27,27 +27,83 @@ export class SysinfoService {
   ) {}
 
   async createSysinfo(sysinfoDto: SysinfoDto): Promise<Sysinfo> {
-    const sysinfo = this.sysinfoRepository.create({
-      hostname: sysinfoDto.hostname,
-      username: sysinfoDto.username,
-      os: sysinfoDto.os,
-      platform: sysinfoDto.platform,
-      cpu: sysinfoDto.cpu,
-      memory: sysinfoDto.memory,
-      display: sysinfoDto.display,
-      version: sysinfoDto.version,
-      deviceId: sysinfoDto.id,
-      uuid: sysinfoDto.uuid,
-      presetAddressBookName: sysinfoDto['preset-address-book-name'],
-      presetAddressBookTag: sysinfoDto['preset-address-book-tag'],
-      presetAddressBookAlias: sysinfoDto['preset-address-book-alias'],
-      presetAddressBookPassword: sysinfoDto['preset-address-book-password'],
-      presetAddressBookNote: sysinfoDto['preset-address-book-note'],
-      presetUsername: sysinfoDto['preset-username'],
-      presetStrategyName: sysinfoDto['preset-strategy-name'],
-      presetDeviceGroupName: sysinfoDto['preset-device-group-name'],
-      presetNote: sysinfoDto['preset-note'],
+    // 根据 uuid 查找是否已存在记录
+    const existingSysinfo = await this.sysinfoRepository.findOne({
+      where: { uuid: sysinfoDto.uuid },
     });
+
+    let sysinfo: Sysinfo;
+
+    if (existingSysinfo) {
+      // 已存在，更新记录
+      this.logger.debug(`设备 ${sysinfoDto.uuid} 已存在，更新系统信息`);
+      
+      // 更新字段（只更新有值的字段）
+      if (sysinfoDto.hostname !== undefined) existingSysinfo.hostname = sysinfoDto.hostname;
+      if (sysinfoDto.username !== undefined) existingSysinfo.username = sysinfoDto.username;
+      if (sysinfoDto.os !== undefined) existingSysinfo.os = sysinfoDto.os;
+      if (sysinfoDto.platform !== undefined) existingSysinfo.platform = sysinfoDto.platform;
+      if (sysinfoDto.cpu !== undefined) existingSysinfo.cpu = sysinfoDto.cpu;
+      if (sysinfoDto.memory !== undefined) existingSysinfo.memory = sysinfoDto.memory;
+      if (sysinfoDto.display !== undefined) existingSysinfo.display = sysinfoDto.display;
+      if (sysinfoDto.version !== undefined) existingSysinfo.version = sysinfoDto.version;
+      if (sysinfoDto.id !== undefined) existingSysinfo.deviceId = sysinfoDto.id;
+      
+      // 更新预设字段（如果提供了新值）
+      if (sysinfoDto['preset-address-book-name']) {
+        existingSysinfo.presetAddressBookName = sysinfoDto['preset-address-book-name'];
+      }
+      if (sysinfoDto['preset-address-book-tag']) {
+        existingSysinfo.presetAddressBookTag = sysinfoDto['preset-address-book-tag'];
+      }
+      if (sysinfoDto['preset-address-book-alias']) {
+        existingSysinfo.presetAddressBookAlias = sysinfoDto['preset-address-book-alias'];
+      }
+      if (sysinfoDto['preset-address-book-password']) {
+        existingSysinfo.presetAddressBookPassword = sysinfoDto['preset-address-book-password'];
+      }
+      if (sysinfoDto['preset-address-book-note']) {
+        existingSysinfo.presetAddressBookNote = sysinfoDto['preset-address-book-note'];
+      }
+      if (sysinfoDto['preset-username']) {
+        existingSysinfo.presetUsername = sysinfoDto['preset-username'];
+      }
+      if (sysinfoDto['preset-strategy-name']) {
+        existingSysinfo.presetStrategyName = sysinfoDto['preset-strategy-name'];
+      }
+      if (sysinfoDto['preset-device-group-name']) {
+        existingSysinfo.presetDeviceGroupName = sysinfoDto['preset-device-group-name'];
+      }
+      if (sysinfoDto['preset-note']) {
+        existingSysinfo.presetNote = sysinfoDto['preset-note'];
+      }
+      
+      sysinfo = existingSysinfo;
+    } else {
+      // 不存在，创建新记录
+      this.logger.debug(`设备 ${sysinfoDto.uuid} 不存在，创建新系统信息`);
+      sysinfo = this.sysinfoRepository.create({
+        hostname: sysinfoDto.hostname,
+        username: sysinfoDto.username,
+        os: sysinfoDto.os,
+        platform: sysinfoDto.platform,
+        cpu: sysinfoDto.cpu,
+        memory: sysinfoDto.memory,
+        display: sysinfoDto.display,
+        version: sysinfoDto.version,
+        deviceId: sysinfoDto.id,
+        uuid: sysinfoDto.uuid,
+        presetAddressBookName: sysinfoDto['preset-address-book-name'],
+        presetAddressBookTag: sysinfoDto['preset-address-book-tag'],
+        presetAddressBookAlias: sysinfoDto['preset-address-book-alias'],
+        presetAddressBookPassword: sysinfoDto['preset-address-book-password'],
+        presetAddressBookNote: sysinfoDto['preset-address-book-note'],
+        presetUsername: sysinfoDto['preset-username'],
+        presetStrategyName: sysinfoDto['preset-strategy-name'],
+        presetDeviceGroupName: sysinfoDto['preset-device-group-name'],
+        presetNote: sysinfoDto['preset-note'],
+      });
+    }
 
     const savedSysinfo = await this.sysinfoRepository.save(sysinfo);
 

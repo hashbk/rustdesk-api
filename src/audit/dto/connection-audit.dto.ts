@@ -1,6 +1,5 @@
-import { IsString, IsEnum, IsOptional, IsArray, IsInt, Min, Max, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ConnAction, ConnType } from '../entities/connection-audit.entity';
+import { IsString, IsOptional, IsArray, IsInt, Min, Max, IsNumber } from 'class-validator';
+import { ConnType } from '../entities/connection-audit.entity';
 
 export class ConnectionAuditDto {
   @IsString()
@@ -9,19 +8,22 @@ export class ConnectionAuditDto {
   @IsString()
   uuid: string;
 
+  // 支持前端发送的 conn_id（下划线格式）
+  @IsNumber()
+  conn_id: number;
+
+  // 支持前端发送的 session_id（下划线格式）
+  @IsNumber()
+  session_id: number;
+
+  // ip 字段在 action 为 close 时可能不发送
   @IsString()
   @IsOptional()
-  connId?: string;
+  ip?: string;
 
   @IsString()
   @IsOptional()
-  sessionId?: string;
-
-  @IsString()
-  ip: string;
-
-  @IsEnum(ConnAction)
-  action: ConnAction;
+  action?: string;
 
   @IsArray()
   @IsString({ each: true })

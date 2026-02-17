@@ -30,13 +30,17 @@ export class AuditService {
   ) {}
 
   async auditConnection(dto: ConnectionAuditDto): Promise<ConnectionAudit> {
+    // 支持前端发送的下划线格式字段
+    const connId = dto.conn_id !== undefined ? String(dto.conn_id) : null;
+    const sessionId = dto.session_id !== undefined ? String(dto.session_id) : null;
+
     const connectionAudit = this.connectionAuditRepository.create({
       deviceId: dto.id,
       deviceUuid: dto.uuid,
-      connId: dto.connId || null,
-      sessionId: dto.sessionId || null,
-      ip: dto.ip,
-      action: dto.action,
+      connId,
+      sessionId,
+      ip: dto.ip || '',
+      action: dto.action || '',
       peerId: dto.peer ? dto.peer[0] : null,
       peerName: dto.peer ? dto.peer[1] : null,
       type: dto.type !== undefined ? dto.type : null,

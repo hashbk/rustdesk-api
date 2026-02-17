@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, Unique } from 'typeorm';
 
-@Entity('sysinfo')
+@Entity('sysinfos')
+@Unique(['uuid']) // uuid 作为唯一标识符
 export class Sysinfo {
   @PrimaryGeneratedColumn()
   id: number;
@@ -32,7 +33,8 @@ export class Sysinfo {
   @Column({ nullable: true })
   deviceId: string;
 
-  @Column({ nullable: true })
+  @Column({ unique: true })
+  @Index()
   uuid: string;
 
   @Column({ name: 'preset_address_book_name', nullable: true })
@@ -65,6 +67,6 @@ export class Sysinfo {
   @CreateDateColumn()
   createdAt: Date;
 
-  @CreateDateColumn()
+  @UpdateDateColumn()
   updatedAt: Date;
 }
