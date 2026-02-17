@@ -303,12 +303,20 @@ export class AuthService {
   /**
    * 用户登出
    */
-  async logout(userId: number, logoutDto: LogoutDto): Promise<void> {
+  async logout(userId: number, logoutDto: LogoutDto, token?: string | null): Promise<void> {
     const { id, uuid } = logoutDto;
 
-    // 撤销相关 Token
+    // 优先撤销当前 token
+    if (token) {
+      const result = await this.tokenRepository.update(
+        { userId, token, isRevoked: false },
+        { isRevoked: true },
+      );
+    }
+
+    // 如果提供了设备信息，也撤销该设备的所有 token
     if (id || uuid) {
-      await this.tokenRepository.update(
+      const result = await this.tokenRepository.update(
         {
           userId,
           deviceId: id,

@@ -41,8 +41,14 @@ export class GlobalJwtAuthGuard implements CanActivate {
         secret: process.env.JWT_SECRET || 'rustdesk-api-secret-key-change-in-production',
       });
 
-      // 将用户信息附加到请求对象
-      request.user = payload;
+      // 将用户信息附加到请求对象，将 sub 映射为 id
+      request.user = {
+        id: payload.sub,
+        username: payload.username,
+        email: payload.email,
+        isAdmin: payload.isAdmin,
+        deviceId: payload.deviceId,
+      };
       return true;
     } catch (error) {
       this.logger.debug(`Token verification failed: ${error.message}`);

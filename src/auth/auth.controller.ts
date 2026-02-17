@@ -1,8 +1,9 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import type { Request } from 'express';
 
 @Controller()
 export class AuthController {
@@ -26,8 +27,13 @@ export class AuthController {
   async logout(
     @CurrentUser('id') userId: number,
     @Body() logoutDto: LogoutDto,
+    @Req() req: Request,
   ) {
-    await this.authService.logout(userId, logoutDto);
+    // 从请求头获取 token
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    
+    await this.authService.logout(userId, logoutDto, token);
     return { message: '登出成功' };
   }
 
