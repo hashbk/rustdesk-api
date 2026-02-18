@@ -1,12 +1,17 @@
-import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class PeerQueryDto {
   @IsNumber()
   @Min(1)
+  @IsInt()
+  @Type(() => Number)
   current: number;
 
   @IsNumber()
   @Min(1)
+  @IsInt()
+  @Type(() => Number)
   pageSize: number;
 
   @IsString()

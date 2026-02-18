@@ -8,6 +8,31 @@ import { ShareRule } from './entities/shared-address-book.entity';
 export class AddressBookController {
   constructor(private readonly addressBookService: AddressBookService) {}
 
+  // ============ 旧版（Legacy）API ============
+
+  /**
+   * 获取旧版地址簿
+   * GET /api/ab
+   */
+  @Get()
+  async getLegacyAddressBook(@CurrentUser('id') userId: number) {
+    return this.addressBookService.getLegacyAddressBook(String(userId));
+  }
+
+  /**
+   * 更新旧版地址簿
+   * POST /api/ab
+   */
+  @Post()
+  async updateLegacyAddressBook(
+    @Body('data') data: string,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.addressBookService.updateLegacyAddressBook(String(userId), data);
+  }
+
+  // ============ 新版 API ============
+
   // 获取地址簿设置
   @Post('settings')
   getSettings() {

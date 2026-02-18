@@ -20,7 +20,7 @@ export class HeartbeatService {
     this.logger.debug(`收到心跳数据: id=${data.id}, uuid=${data.uuid}`);
 
     const existingPeer = await this.peerRepository.findOne({
-      where: { id: data.id, uuid: data.uuid }
+      where: { uuid: data.uuid }
     });
 
     // 判断设备是否在线：有 conns 数据且数组不为空表示在线
@@ -29,8 +29,9 @@ export class HeartbeatService {
 
     if (existingPeer) {
       await this.peerRepository.update(
-        { id: data.id, uuid: data.uuid },
+        { uuid: data.uuid },
         {
+          id: data.id,
           ver: data.ver,
           modifiedAt: data.modified_at,
           conns: data.conns ? JSON.stringify(data.conns) : null,
@@ -51,8 +52,8 @@ export class HeartbeatService {
     await this.accessiblePeerRepository
       .createQueryBuilder()
       .update(AccessiblePeer)
-      .set({ status })
-      .where('id = :peerId', { peerId: data.id })
+      .set({ status, id: data.id })
+      .where('uuid = :peerUuid', { peerUuid: data.uuid })
       .execute();
 
     return {

@@ -3,10 +3,10 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } fro
 @Entity('peers')
 export class Peer {
   @PrimaryColumn()
-  id: string;
-
-  @PrimaryColumn()
   uuid: string;
+
+  @Column()
+  id: string;
 
   @Column()
   ver: number;

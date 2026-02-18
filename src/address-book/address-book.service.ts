@@ -459,4 +459,168 @@ export class AddressBookService {
 
     return { message: '取消共享成功' };
   }
+
+  // ============ 旧版（Legacy）API ============
+
+  /**
+   * 获取旧版地址簿
+   * 返回格式兼容旧版 RustDesk 客户端
+   */
+  async getLegacyAddressBook(userId: string) {
+    // 获取用户的个人地址簿
+    let addressBook = await this.addressBookRepository.findOne({
+      where: { owner: userId, isPersonal: true },
+    });
+
+    // 如果不存在则创建
+    if (!addressBook) {
+      addressBook = this.addressBookRepository.create({
+        guid: uuidv4(),
+        owner: userId,
+        name: 'Personal',
+        isPersonal: true,
+        maxPeers: 1000,
+      });
+      await this.addressBookRepository.save(addressBook);
+    }
+
+    // 获取所有标签
+    const tags = await this.abTagRepository.find({
+      where: { abGuid: addressBook.guid },
+    });
+
+    // 获取所有设备
+    const peers = await this.abPeerRepository.find({
+      where: { abGuid: addressBook.guid },
+    });
+
+    // 如果地址簿为空，返回 "null"
+    if (tags.length === 0 && peers.length === 0) {
+      return 'null';
+    }
+
+    // 构建标签颜色映射
+    const tagColors: Record<string, number> = {};
+    for (const tag of tags) {
+      tagColors[tag.name] = tag.color;
+    }
+
+    // 构建设备列表
+    const peersData = peers.map(p => ({
+      id: p.id,
+      hash: p.hash || '',
+      username: p.username || '',
+      hostname: p.hostname || '',
+      platform: p.platform || '',
+      alias: p.alias || '',
+      tags: p.tags ? JSON.parse(p.tags) : [],
+    }));
+
+    // 构建标签列表
+    const tagsList = tags.map(t => t.name);
+
+    return {
+      licensed_devices: 100,
+      data: {
+        tags: tagsList,
+        peers: peersData,
+        tag_colors: JSON.stringify(tagColors),
+      },
+    };
+  }
+
+  /**
+   * 更新旧版地址簿
+   * 接收双重 JSON 编码的数据
+   */
+  async updateLegacyAddressBook(userId: string, data: string) {
+    if (!data) {
+      return 'null';
+    }
+
+    // 解析双重 JSON 编码的数据
+    let parsedData: {
+      tags?: string[];
+      peers?: Array<{
+        id: string;
+        hash?: string;
+        username?: string;
+        hostname?: string;
+        platform?: string;
+        alias?: string;
+        tags?: string[];
+      }>;
+      tag_colors?: string;
+    };
+
+    try {
+      parsedData = JSON.parse(data);
+    } catch (e) {
+      throw new BadRequestException('无效的 JSON 数据');
+    }
+
+    // 获取用户的个人地址簿
+    let addressBook = await this.addressBookRepository.findOne({
+      where: { owner: userId, isPersonal: true },
+    });
+
+    // 如果不存在则创建
+    if (!addressBook) {
+      addressBook = this.addressBookRepository.create({
+        guid: uuidv4(),
+        owner: userId,
+        name: 'Personal',
+        isPersonal: true,
+        maxPeers: 1000,
+      });
+      await this.addressBookRepository.save(addressBook);
+    }
+
+    const abGuid = addressBook.guid;
+
+    // 解析标签颜色
+    let tagColors: Record<string, number> = {};
+    if (parsedData.tag_colors) {
+      try {
+        tagColors = JSON.parse(parsedData.tag_colors);
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 删除所有现有标签和设备
+    await this.abTagRepository.delete({ abGuid });
+    await this.abPeerRepository.delete({ abGuid });
+
+    // 创建新标签
+    if (parsedData.tags && parsedData.tags.length > 0) {
+      for (const tagName of parsedData.tags) {
+        const tag = this.abTagRepository.create({
+          name: tagName,
+          abGuid,
+          color: tagColors[tagName] || 0,
+        });
+        await this.abTagRepository.save(tag);
+      }
+    }
+
+    // 创建新设备
+    if (parsedData.peers && parsedData.peers.length > 0) {
+      for (const peerData of parsedData.peers) {
+        const peer = this.abPeerRepository.create({
+          id: peerData.id,
+          abGuid,
+          hash: peerData.hash || '',
+          username: peerData.username || '',
+          hostname: peerData.hostname || '',
+          platform: peerData.platform || '',
+          alias: peerData.alias || '',
+          tags: peerData.tags ? JSON.stringify(peerData.tags) : '[]',
+        });
+        await this.abPeerRepository.save(peer);
+      }
+    }
+
+    return 'null';
+  }
 }

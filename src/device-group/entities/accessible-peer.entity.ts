@@ -15,6 +15,9 @@ export class AccessiblePeer {
   @PrimaryColumn()
   userId: number; // 所属用户ID，联合主键
 
+  @Column()
+  uuid: string; // 设备UUID（唯一标识）
+
   // 设备详细信息（JSON 格式）
   @Column({ type: 'text', nullable: true })
   info: string; // JSON: { username, hostname, device_name, os }
