@@ -521,11 +521,11 @@ export class AddressBookService {
 
     return {
       licensed_devices: 100,
-      data: {
+      data: JSON.stringify({
         tags: tagsList,
         peers: peersData,
         tag_colors: JSON.stringify(tagColors),
-      },
+      }),
     };
   }
 
