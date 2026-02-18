@@ -72,50 +72,85 @@ export class AddressBookController {
   // 添加设备到地址簿
   @Post('peer/add/:guid')
   @HttpCode(HttpStatus.OK)
-  addPeer(@Param('guid') guid: string, @Body() dto: AddPeerDto, @CurrentUser('id') userId: number) {
-    return this.addressBookService.addPeer(guid, dto, String(userId));
+  async addPeer(@Param('guid') guid: string, @Body() dto: AddPeerDto, @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.addPeer(guid, dto, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 更新设备信息
   @Put('peer/update/:guid')
   @HttpCode(HttpStatus.OK)
-  updatePeer(@Param('guid') guid: string, @Body() dto: UpdatePeerDto, @CurrentUser('id') userId: number) {
-    return this.addressBookService.updatePeer(guid, dto, String(userId));
+  async updatePeer(@Param('guid') guid: string, @Body() dto: UpdatePeerDto, @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.updatePeer(guid, dto, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 删除设备
   @Delete('peer/:guid')
   @HttpCode(HttpStatus.OK)
-  deletePeers(@Param('guid') guid: string, @Body() ids: string[], @CurrentUser('id') userId: number) {
-    return this.addressBookService.deletePeers(guid, ids, String(userId));
+  async deletePeers(@Param('guid') guid: string, @Body() ids: string[], @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.deletePeers(guid, ids, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 添加标签
   @Post('tag/add/:guid')
   @HttpCode(HttpStatus.OK)
-  addTag(@Param('guid') guid: string, @Body() dto: AddTagDto, @CurrentUser('id') userId: number) {
-    return this.addressBookService.addTag(guid, dto, String(userId));
+  async addTag(@Param('guid') guid: string, @Body() dto: AddTagDto, @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.addTag(guid, dto, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 重命名标签
   @Put('tag/rename/:guid')
   @HttpCode(HttpStatus.OK)
-  renameTag(@Param('guid') guid: string, @Body() dto: RenameTagDto, @CurrentUser('id') userId: number) {
-    return this.addressBookService.renameTag(guid, dto, String(userId));
+  async renameTag(@Param('guid') guid: string, @Body() dto: RenameTagDto, @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.renameTag(guid, dto, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 更新标签颜色
   @Put('tag/update/:guid')
   @HttpCode(HttpStatus.OK)
-  updateTag(@Param('guid') guid: string, @Body() dto: UpdateTagDto, @CurrentUser('id') userId: number) {
-    return this.addressBookService.updateTag(guid, dto, String(userId));
+  async updateTag(@Param('guid') guid: string, @Body() dto: UpdateTagDto, @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.updateTag(guid, dto, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 删除标签
   @Delete('tag/:guid')
   @HttpCode(HttpStatus.OK)
-  deleteTags(@Param('guid') guid: string, @Body() names: string[], @CurrentUser('id') userId: number) {
-    return this.addressBookService.deleteTags(guid, names, String(userId));
+  async deleteTags(@Param('guid') guid: string, @Body() names: string[], @CurrentUser('id') userId: number) {
+    try {
+      await this.addressBookService.deleteTags(guid, names, String(userId));
+      return '';
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
   // 共享地址簿
