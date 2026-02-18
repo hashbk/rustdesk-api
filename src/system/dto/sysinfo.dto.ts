@@ -27,6 +27,14 @@ export class SysinfoDto {
 
   @IsString()
   @IsOptional()
+  version?: string;
+
+  @IsString()
+  @IsOptional()
+  id?: string;
+
+  @IsString()
+  @IsOptional()
   'preset-address-book-name'?: string;
 
   @IsString()

@@ -308,15 +308,16 @@ export class AuthService {
 
     // 优先撤销当前 token
     if (token) {
-      const result = await this.tokenRepository.update(
+      await this.tokenRepository.update(
         { userId, token, isRevoked: false },
         { isRevoked: true },
       );
     }
 
-    // 如果提供了设备信息，也撤销该设备的所有 token
+    // 如果提供了设备信息，撤销该设备的所有 token 并解除设备绑定
     if (id || uuid) {
-      const result = await this.tokenRepository.update(
+      // 撤销该设备的所有 token
+      await this.tokenRepository.update(
         {
           userId,
           deviceId: id,
@@ -325,6 +326,19 @@ export class AuthService {
         },
         { isRevoked: true },
       );
+
+      // 解除设备与用户的绑定（安全关键：防止退出登录后设备仍关联用户）
+      if (uuid) {
+        const peer = await this.peerRepository.findOne({
+          where: { uuid, userId },
+        });
+
+        if (peer) {
+          peer.userId = null as any;
+          await this.peerRepository.save(peer);
+          this.logger.log(`用户 ${userId} 退出登录，已解除设备 ${uuid} 的绑定`);
+        }
+      }
     }
   }
 
