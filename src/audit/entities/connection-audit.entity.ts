@@ -4,7 +4,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
 // 对于支持 ENUM 的数据库，可以在装饰器中使用 @Column({ type: 'enum', enum: ConnAction })
 
 export const ConnAction = {
-  NEW: 'new',
+  OPEN: 'open',
+  ESTABLISHED: 'established',
   CLOSE: 'close',
 } as const;
 
@@ -54,4 +55,13 @@ export class ConnectionAudit {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  requestedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  establishedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  closedAt: Date | null;
 }

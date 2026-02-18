@@ -36,6 +36,9 @@
   - 3: 摄像头
   - 4: 终端
 - `createdAt`: 创建时间
+- `requestedAt`: 连接发起时间（action = 'open'）
+- `establishedAt`: 连接建立时间（action = 'established'）
+- `closedAt`: 连接关闭时间（action = 'close'）
 
 ### file_audits (文件审计表)
 - `id`: 主键
@@ -84,8 +87,9 @@
 ```
 
 **触发场景**:
-- 新建连接时: `action: "new"` + IP 地址
-- 关闭连接时: `action: "close"`
+- 新建连接时: `action: "new"` + IP 地址 → 记录 `requestedAt` 时间
+- 连接建立时: `action: ""` 或不传 → 记录 `establishedAt` 时间
+- 关闭连接时: `action: "close"` → 记录 `closedAt` 时间
 - 登录授权成功时: 包含 peer 信息和连接类型
 
 **响应**:
@@ -104,7 +108,10 @@
     "peerId": "对端ID",
     "peerName": "对端名称",
     "type": 0,
-    "createdAt": "2024-01-01T00:00:00.000Z"
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "requestedAt": "2024-01-01T00:00:00.000Z",
+    "establishedAt": "2024-01-01T00:00:05.000Z",
+    "closedAt": "2024-01-01T00:10:00.000Z"
   }
 }
 ```

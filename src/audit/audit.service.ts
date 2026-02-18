@@ -34,16 +34,74 @@ export class AuditService {
     const connId = dto.conn_id !== undefined ? String(dto.conn_id) : null;
     const sessionId = dto.session_id !== undefined ? String(dto.session_id) : null;
 
+    // 转换 action 状态
+    let action: string;
+    if (dto.action === 'new') {
+      action = 'open';
+    } else if (dto.action === '' || !dto.action) {
+      action = 'established';
+    } else {
+      action = dto.action;
+    }
+
+    // 尝试查找现有连接（deviceId、deviceUuid、connId 均相同视为同一连接）
+    const whereCondition: any = {
+      deviceId: dto.id,
+      deviceUuid: dto.uuid,
+    };
+    if (connId !== null) {
+      whereCondition.connId = connId;
+    }
+
+    const existingConnection = await this.connectionAuditRepository.findOne({
+      where: whereCondition,
+    });
+
+    if (existingConnection) {
+      // 只更新非空且与数据库中储存的值不同的字段
+      if (sessionId !== null && sessionId !== existingConnection.sessionId) {
+        existingConnection.sessionId = sessionId;
+      }
+      if (dto.ip && dto.ip !== existingConnection.ip) {
+        existingConnection.ip = dto.ip;
+      }
+      // 根据不同的 action 更新对应的时间字段
+      if (action === 'open' && !existingConnection.requestedAt) {
+        existingConnection.requestedAt = new Date();
+      }
+      if (action === 'established' && !existingConnection.establishedAt) {
+        existingConnection.establishedAt = new Date();
+      }
+      if (action === 'close' && !existingConnection.closedAt) {
+        existingConnection.closedAt = new Date();
+      }
+      existingConnection.action = action; // action 总是更新
+      if (dto.peer && dto.peer[0] !== existingConnection.peerId) {
+        existingConnection.peerId = dto.peer[0];
+      }
+      if (dto.peer && dto.peer[1] !== existingConnection.peerName) {
+        existingConnection.peerName = dto.peer[1];
+      }
+      if (dto.type !== undefined && dto.type !== existingConnection.type) {
+        existingConnection.type = dto.type;
+      }
+      return await this.connectionAuditRepository.save(existingConnection);
+    }
+
+    // 创建新连接
     const connectionAudit = this.connectionAuditRepository.create({
       deviceId: dto.id,
       deviceUuid: dto.uuid,
       connId,
       sessionId,
       ip: dto.ip || '',
-      action: dto.action || '',
+      action,
       peerId: dto.peer ? dto.peer[0] : null,
       peerName: dto.peer ? dto.peer[1] : null,
       type: dto.type !== undefined ? dto.type : null,
+      requestedAt: action === 'open' ? new Date() : null,
+      establishedAt: action === 'established' ? new Date() : null,
+      closedAt: action === 'close' ? new Date() : null,
     });
 
     return await this.connectionAuditRepository.save(connectionAudit);
@@ -136,6 +194,9 @@ export class AuditService {
         peer_name: audit.peerName,
         type: audit.type,
         created_at: audit.createdAt,
+        requested_at: audit.requestedAt,
+        established_at: audit.establishedAt,
+        closed_at: audit.closedAt,
       })),
       total,
       page,
