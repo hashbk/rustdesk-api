@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe } 
 import { DeviceGroupService } from './device-group.service';
 import { PeerService } from './peer.service';
 import { DeviceGroupQueryDto, CreateDeviceGroupDto, UpdateDeviceGroupDto } from './dto/device-group.dto';
-import { PeerQueryDto, CreatePeerDto, UpdatePeerDto } from './dto/peer.dto';
+import { PeerQueryDto, UpdatePeerDto } from './dto/peer.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller()
@@ -186,27 +186,20 @@ export class DeviceGroupController {
 
     const { peers, total } = await this.peerService.findAll(pageNum, limitNum);
 
+    // 计算一分钟前的时间
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+
     return {
-      peers: peers.map(p => {
-        const info = p.getInfo();
-        return {
-          id: p.id,
-          user_id: p.userId,
-          info: {
-            username: info.username,
-            hostname: info.hostname,
-            device_name: info.device_name,
-            os: info.os,
-          },
-          status: p.status,
-          owner_username: p.ownerUsername,
-          owner_name: p.ownerName,
-          device_group_name: p.deviceGroupName,
-          note: p.note,
-          created_at: p.createdAt,
-          updated_at: p.updatedAt,
-        };
-      }),
+      peers: peers.map(p => ({
+        id: p.id,
+        uuid: p.uuid,
+        user_id: p.userId,
+        ver: p.ver,
+        modified_at: p.modifiedAt,
+        status: p.updatedAt > oneMinuteAgo ? 1 : 0,
+        created_at: p.createdAt,
+        updated_at: p.updatedAt,
+      })),
       total,
       page: pageNum,
       limit: limitNum,
@@ -214,69 +207,30 @@ export class DeviceGroupController {
   }
 
   /**
-   * 创建或更新设备
-   * POST /api/admin/peers
+   * 更新设备信息
+   * PUT /api/admin/peers/:uuid
    */
-  @Post('admin/peers')
-  async upsertPeer(
-    @Body() createDto: CreatePeerDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-    @CurrentUser('id') userId: number,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    const peer = await this.peerService.upsertPeer(userId, createDto);
-    const info = peer.getInfo();
-    return {
-      id: peer.id,
-      info: {
-        username: info.username,
-        hostname: info.hostname,
-        device_name: info.device_name,
-        os: info.os,
-      },
-      status: peer.status,
-    };
-  }
-
-  /**
-   * 更新设备
-   * PUT /api/admin/peers/:id
-   */
-  @Put('admin/peers/:id')
+  @Put('admin/peers/:uuid')
   async updatePeer(
-    @Param('id') peerId: string,
+    @Param('uuid') uuid: string,
     @Body() updateDto: UpdatePeerDto,
     @CurrentUser('isAdmin') isAdmin: boolean,
-    @CurrentUser('id') userId: number,
   ) {
     if (!isAdmin) {
       return { error: '无权限访问' };
     }
 
-    const peer = await this.peerService.updatePeer(peerId, userId, updateDto);
-    const info = peer.getInfo();
-    return {
-      id: peer.id,
-      info: {
-        username: info.username,
-        hostname: info.hostname,
-        device_name: info.device_name,
-        os: info.os,
-      },
-      status: peer.status,
-    };
+    await this.peerService.updatePeerInfo(uuid, updateDto);
+    return { message: '更新成功' };
   }
 
   /**
-   * 删除设备
-   * DELETE /api/admin/peers/:id
+   * 删除设备（解除用户绑定）
+   * DELETE /api/admin/peers/:uuid
    */
-  @Delete('admin/peers/:id')
+  @Delete('admin/peers/:uuid')
   async deletePeer(
-    @Param('id') peerId: string,
+    @Param('uuid') uuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
     @CurrentUser('id') userId: number,
   ) {
@@ -284,7 +238,7 @@ export class DeviceGroupController {
       return { error: '无权限访问' };
     }
 
-    await this.peerService.deletePeer(peerId, userId);
+    await this.peerService.deletePeer(uuid, userId);
     return { message: '删除成功' };
   }
 }

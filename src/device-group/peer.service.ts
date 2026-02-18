@@ -2,17 +2,24 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccessiblePeer, PeerInfo } from './entities/accessible-peer.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
+import { Sysinfo } from '../system/entities/sysinfo.entity';
 import { PeerQueryDto, CreatePeerDto, UpdatePeerDto } from './dto/peer.dto';
 
 @Injectable()
 export class PeerService {
   constructor(
     @InjectRepository(AccessiblePeer)
-    private peerRepository: Repository<AccessiblePeer>,
+    private accessiblePeerRepository: Repository<AccessiblePeer>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
+    @InjectRepository(Sysinfo)
+    private sysinfoRepository: Repository<Sysinfo>,
   ) {}
 
   /**
    * 获取用户可访问的设备列表（分页）
+   * 从 peers 表查询用户设备，根据 updatedAt 判断在线状态
    */
   async getAccessiblePeers(
     userId: number,
@@ -21,14 +28,17 @@ export class PeerService {
     const { current, pageSize, status } = query;
     const skip = (current - 1) * pageSize;
 
-    // 构建查询条件
+    // 计算一分钟前的时间
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+
+    // 构建查询条件 - 从 peers 表查询
     const queryBuilder = this.peerRepository
       .createQueryBuilder('peer')
       .where('peer.userId = :userId', { userId });
 
     // 状态过滤：status='1' 表示只获取在线设备
     if (status === '1') {
-      queryBuilder.andWhere('peer.status = 1');
+      queryBuilder.andWhere('peer.updatedAt > :oneMinuteAgo', { oneMinuteAgo });
     }
 
     // 分页查询
@@ -39,22 +49,33 @@ export class PeerService {
 
     const [peers, total] = await queryBuilder.getManyAndCount();
 
+    // 获取所有设备的 uuid 列表
+    const uuids = peers.map(p => p.uuid);
+
+    // 批量查询系统信息
+    const sysinfos = uuids.length > 0
+      ? await this.sysinfoRepository.findByIds(uuids)
+      : [];
+
+    const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
+
     // 转换响应格式
     const data = peers.map(peer => {
-      const info = peer.getInfo();
+      const sysinfo = sysinfoMap.get(peer.uuid);
+      const isOnline = peer.updatedAt > oneMinuteAgo;
+
       return {
         id: peer.id,
+        uuid: peer.uuid,
         info: {
-          username: info.username,
-          hostname: info.hostname,
-          device_name: info.device_name,
-          os: info.os,
+          username: sysinfo?.username || '',
+          hostname: sysinfo?.hostname || '',
+          device_name: sysinfo?.hostname || '',
+          os: sysinfo?.os || '',
         },
-        status: peer.status,
-        user: peer.ownerUsername,
-        user_name: peer.ownerName,
-        device_group_name: peer.deviceGroupName,
-        note: peer.note || '',
+        status: isOnline ? 1 : 0,
+        device_group_name: '',
+        note: '',
       };
     });
 
@@ -64,7 +85,7 @@ export class PeerService {
   /**
    * 获取所有设备（管理员）
    */
-  async findAll(page: number = 1, limit: number = 20): Promise<{ peers: AccessiblePeer[]; total: number }> {
+  async findAll(page: number = 1, limit: number = 20): Promise<{ peers: Peer[]; total: number }> {
     const [peers, total] = await this.peerRepository.findAndCount({
       order: { id: 'ASC' },
       skip: (page - 1) * limit,
@@ -77,105 +98,44 @@ export class PeerService {
   /**
    * 根据设备ID和用户ID获取设备
    */
-  async findById(peerId: string, userId: number): Promise<AccessiblePeer | null> {
+  async findById(peerId: string, userId: number): Promise<Peer | null> {
     return this.peerRepository.findOne({
       where: { id: peerId, userId },
     });
   }
 
   /**
-   * 创建或更新设备
+   * 根据UUID获取设备
    */
-  async upsertPeer(userId: number, createDto: CreatePeerDto): Promise<AccessiblePeer> {
-    let peer = await this.findById(createDto.id, userId);
+  async findByUuid(uuid: string, userId: number): Promise<Peer | null> {
+    return this.peerRepository.findOne({
+      where: { uuid, userId },
+    });
+  }
 
-    const info: PeerInfo = {
-      username: createDto.username || '',
-      hostname: createDto.hostname || '',
-      device_name: createDto.deviceName || '',
-      os: createDto.os || '',
-    };
+  /**
+   * 更新设备信息（通过 sysinfo）
+   */
+  async updatePeerInfo(uuid: string, updateDto: UpdatePeerDto): Promise<void> {
+    // 更新 sysinfo 表
+    const sysinfo = await this.sysinfoRepository.findOne({ where: { uuid } });
+    if (sysinfo) {
+      if (updateDto.hostname !== undefined) sysinfo.hostname = updateDto.hostname;
+      if (updateDto.username !== undefined) sysinfo.username = updateDto.username;
+      if (updateDto.os !== undefined) sysinfo.os = updateDto.os;
+      await this.sysinfoRepository.save(sysinfo);
+    }
+  }
 
+  /**
+   * 删除设备（解除用户绑定）
+   */
+  async deletePeer(uuid: string, userId: number): Promise<void> {
+    const peer = await this.findByUuid(uuid, userId);
     if (peer) {
-      // 更新
-      peer.setInfo(info);
-      peer.ownerUsername = createDto.ownerUsername || peer.ownerUsername;
-      peer.ownerName = createDto.ownerName || peer.ownerName;
-      peer.deviceGroupName = createDto.deviceGroupName || peer.deviceGroupName;
-      peer.note = createDto.note !== undefined ? createDto.note : peer.note;
-    } else {
-      // 创建
-      peer = this.peerRepository.create({
-        id: createDto.id,
-        userId,
-        ownerUsername: createDto.ownerUsername,
-        ownerName: createDto.ownerName,
-        deviceGroupName: createDto.deviceGroupName,
-        note: createDto.note || '',
-        status: 0, // 默认离线
-      });
-      peer.setInfo(info);
+      // 将设备的 userId 设为 null，表示解除绑定
+      peer.userId = null as any;
+      await this.peerRepository.save(peer);
     }
-
-    return this.peerRepository.save(peer);
-  }
-
-  /**
-   * 更新设备
-   */
-  async updatePeer(peerId: string, userId: number, updateDto: UpdatePeerDto): Promise<AccessiblePeer> {
-    const peer = await this.findById(peerId, userId);
-    if (!peer) {
-      throw new NotFoundException('设备不存在');
-    }
-
-    // 更新 info 字段
-    const info = peer.getInfo();
-    if (updateDto.username !== undefined) info.username = updateDto.username;
-    if (updateDto.hostname !== undefined) info.hostname = updateDto.hostname;
-    if (updateDto.deviceName !== undefined) info.device_name = updateDto.deviceName;
-    if (updateDto.os !== undefined) info.os = updateDto.os;
-    peer.setInfo(info);
-
-    // 更新其他字段
-    if (updateDto.deviceGroupName !== undefined) peer.deviceGroupName = updateDto.deviceGroupName;
-    if (updateDto.note !== undefined) peer.note = updateDto.note;
-    if (updateDto.status !== undefined) peer.status = updateDto.status;
-
-    return this.peerRepository.save(peer);
-  }
-
-  /**
-   * 更新设备在线状态
-   */
-  async updateStatus(peerId: string, userId: number, status: number): Promise<void> {
-    await this.peerRepository.update(
-      { id: peerId, userId },
-      { status },
-    );
-  }
-
-  /**
-   * 删除设备
-   */
-  async deletePeer(peerId: string, userId: number): Promise<void> {
-    const peer = await this.findById(peerId, userId);
-    if (peer) {
-      await this.peerRepository.remove(peer);
-    }
-  }
-
-  /**
-   * 批量更新设备状态（用于心跳同步）
-   */
-  async batchUpdateStatus(peerIds: string[], status: number): Promise<void> {
-    if (peerIds.length === 0) return;
-
-    await this.peerRepository
-      .createQueryBuilder()
-      .update()
-      .set({ status })
-      .where('id IN (:...peerIds)', { peerIds })
-      .execute();
   }
 }
