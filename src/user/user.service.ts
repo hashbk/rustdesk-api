@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from './entities/user.entity';
-import { UserDevice } from './entities/user-device.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
+import { Sysinfo } from '../system/entities/sysinfo.entity';
 import { UpdateUserDto, AdminUpdateUserDto } from './dto/user.dto';
 
 @Injectable()
@@ -13,8 +14,10 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(UserDevice)
-    private deviceRepository: Repository<UserDevice>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
+    @InjectRepository(Sysinfo)
+    private sysinfoRepository: Repository<Sysinfo>,
   ) {}
 
   /**
@@ -165,26 +168,52 @@ export class UserService {
   /**
    * 获取用户设备列表
    */
-  async getUserDevices(userId: number): Promise<UserDevice[]> {
-    return this.deviceRepository.find({
+  async getUserDevices(userId: number): Promise<any[]> {
+    // 从 peers 表查询属于该用户的设备
+    const peers = await this.peerRepository.find({
       where: { userId },
       order: { updatedAt: 'DESC' },
     });
+
+    // 获取每个设备的系统信息
+    const devices = await Promise.all(
+      peers.map(async (peer) => {
+        const sysinfo = await this.sysinfoRepository.findOne({
+          where: { uuid: peer.uuid },
+        });
+
+        return {
+          uuid: peer.uuid,
+          id: peer.id,
+          hostname: sysinfo?.hostname,
+          username: sysinfo?.username,
+          os: sysinfo?.os,
+          cpu: sysinfo?.cpu,
+          memory: sysinfo?.memory,
+          createdAt: peer.createdAt,
+          updatedAt: peer.updatedAt,
+        };
+      })
+    );
+
+    return devices;
   }
 
   /**
-   * 删除用户设备
+   * 删除用户设备（将设备的 userId 设为 null）
    */
-  async deleteUserDevice(userId: number, deviceId: number): Promise<void> {
-    const device = await this.deviceRepository.findOne({
-      where: { id: deviceId, userId },
+  async deleteUserDevice(userId: number, deviceUuid: string): Promise<void> {
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: deviceUuid, userId },
     });
 
-    if (!device) {
+    if (!peer) {
       throw new NotFoundException('设备不存在');
     }
 
-    await this.deviceRepository.remove(device);
+    // 将设备的 userId 设为 null，表示解除绑定
+    peer.userId = null as any;
+    await this.peerRepository.save(peer);
   }
 
   /**

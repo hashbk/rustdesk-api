@@ -1,6 +1,10 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class SysinfoDto {
+  @IsString()
+  @IsNotEmpty()
+  uuid: string;
+
   @IsString()
   @IsOptional()
   hostname?: string;
@@ -15,31 +19,11 @@ export class SysinfoDto {
 
   @IsString()
   @IsOptional()
-  platform?: string;
-
-  @IsString()
-  @IsOptional()
   cpu?: string;
 
   @IsString()
   @IsOptional()
   memory?: string;
-
-  @IsString()
-  @IsOptional()
-  display?: string;
-
-  @IsString()
-  @IsOptional()
-  version?: string;
-
-  @IsString()
-  @IsOptional()
-  id?: string;
-
-  @IsString()
-  @IsOptional()
-  uuid?: string;
 
   @IsString()
   @IsOptional()

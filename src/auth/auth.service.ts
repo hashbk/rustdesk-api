@@ -6,7 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserStatus, UserInfo } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
-import { UserDevice } from '../user/entities/user-device.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 
 export interface JwtPayload {
@@ -43,8 +43,8 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(UserToken)
     private tokenRepository: Repository<UserToken>,
-    @InjectRepository(UserDevice)
-    private deviceRepository: Repository<UserDevice>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -382,7 +382,7 @@ export class AuthService {
   }
 
   /**
-   * 创建或更新设备记录
+   * 创建或更新设备记录（绑定设备到用户）
    */
   private async createOrUpdateDevice(
     userId: number,
@@ -390,28 +390,18 @@ export class AuthService {
     deviceUuid?: string,
     deviceInfo?: Record<string, any>,
   ): Promise<void> {
-    if (!deviceId && !deviceUuid) return;
+    if (!deviceUuid) return;
 
-    const existingDevice = await this.deviceRepository.findOne({
-      where: [{ deviceId, deviceUuid }],
+    // 查找 peer 记录
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: deviceUuid },
     });
 
-    if (existingDevice) {
-      await this.deviceRepository.update(existingDevice.id, {
-        deviceInfo: deviceInfo ? JSON.stringify(deviceInfo) : existingDevice.deviceInfo,
-        updatedAt: new Date(),
-      });
-    } else {
-      const device = this.deviceRepository.create({
-        userId,
-        deviceId,
-        deviceUuid,
-        deviceName: deviceInfo?.name,
-        platform: deviceInfo?.os || deviceInfo?.platform,
-        osVersion: deviceInfo?.osVersion,
-        deviceInfo: deviceInfo ? JSON.stringify(deviceInfo) : undefined,
-      });
-      await this.deviceRepository.save(device);
+    if (peer) {
+      // 更新 peer 的 userId，绑定设备到用户
+      peer.userId = userId;
+      await this.peerRepository.save(peer);
     }
+    // 如果 peer 不存在，设备会在心跳时自动创建
   }
 }

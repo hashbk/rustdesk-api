@@ -23,10 +23,6 @@ export class HeartbeatService {
       where: { uuid: data.uuid }
     });
 
-    // 判断设备是否在线：有 conns 数据且数组不为空表示在线
-    const isOnline = data.conns && data.conns.length > 0;
-    const status = isOnline ? 1 : 0;
-
     if (existingPeer) {
       await this.peerRepository.update(
         { uuid: data.uuid },
@@ -34,7 +30,6 @@ export class HeartbeatService {
           id: data.id,
           ver: data.ver,
           modifiedAt: data.modified_at,
-          conns: data.conns ? JSON.stringify(data.conns) : null,
         }
       );
     } else {
@@ -43,7 +38,6 @@ export class HeartbeatService {
         uuid: data.uuid,
         ver: data.ver,
         modifiedAt: data.modified_at,
-        conns: data.conns ? JSON.stringify(data.conns) : null,
       });
       await this.peerRepository.save(peer);
     }
@@ -52,7 +46,7 @@ export class HeartbeatService {
     await this.accessiblePeerRepository
       .createQueryBuilder()
       .update(AccessiblePeer)
-      .set({ status, id: data.id })
+      .set({ id: data.id })
       .where('uuid = :peerUuid', { peerUuid: data.uuid })
       .execute();
 
@@ -62,15 +56,14 @@ export class HeartbeatService {
       data: {
         timestamp: Date.now(),
         device_id: data.id,
-        online: isOnline,
       },
     };
   }
 
   /**
-   * 获取设备在线状态
+   * 获取设备信息
    */
-  async getPeerStatus(peerId: string): Promise<{ online: boolean; conns?: number[] }> {
+  async getPeerStatus(peerId: string): Promise<{ online: boolean }> {
     const peer = await this.peerRepository.findOne({
       where: { id: peerId },
     });
@@ -79,27 +72,14 @@ export class HeartbeatService {
       return { online: false };
     }
 
-    const conns = peer.conns ? JSON.parse(peer.conns) : [];
-    return {
-      online: conns.length > 0,
-      conns,
-    };
+    return { online: true };
   }
 
   /**
-   * 获取所有在线设备ID列表
+   * 获取所有设备ID列表
    */
-  async getOnlinePeers(): Promise<string[]> {
-    const peers = await this.peerRepository
-      .createQueryBuilder('peer')
-      .where('peer.conns IS NOT NULL')
-      .getMany();
-
-    return peers
-      .filter(peer => {
-        const conns = peer.conns ? JSON.parse(peer.conns) : [];
-        return conns.length > 0;
-      })
-      .map(peer => peer.id);
+  async getAllPeers(): Promise<string[]> {
+    const peers = await this.peerRepository.find();
+    return peers.map(peer => peer.id);
   }
 }

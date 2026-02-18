@@ -150,22 +150,22 @@ export class UserController {
 
     const devices = await this.userService.getUserDevices(id);
     return devices.map(device => ({
+      uuid: device.uuid,
       id: device.id,
-      device_id: device.deviceId,
-      device_uuid: device.deviceUuid,
-      device_name: device.deviceName,
-      platform: device.platform,
-      os_version: device.osVersion,
-      last_ip: device.lastIp,
+      hostname: device.hostname,
+      username: device.username,
+      os: device.os,
+      cpu: device.cpu,
+      memory: device.memory,
       created_at: device.createdAt,
       updated_at: device.updatedAt,
     }));
   }
 
-  @Delete('users/:id/devices/:deviceId')
+  @Delete('users/:id/devices/:deviceUuid')
   async deleteUserDevice(
     @Param('id', ParseIntPipe) userId: number,
-    @Param('deviceId', ParseIntPipe) deviceId: number,
+    @Param('deviceUuid') deviceUuid: string,
     @CurrentUser('id') currentUserId: number,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
@@ -174,7 +174,7 @@ export class UserController {
       return { error: '无权限访问' };
     }
 
-    await this.userService.deleteUserDevice(userId, deviceId);
+    await this.userService.deleteUserDevice(userId, deviceUuid);
     return { message: '删除成功' };
   }
 }

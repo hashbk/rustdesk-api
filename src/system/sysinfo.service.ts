@@ -42,12 +42,8 @@ export class SysinfoService {
       if (sysinfoDto.hostname !== undefined) existingSysinfo.hostname = sysinfoDto.hostname;
       if (sysinfoDto.username !== undefined) existingSysinfo.username = sysinfoDto.username;
       if (sysinfoDto.os !== undefined) existingSysinfo.os = sysinfoDto.os;
-      if (sysinfoDto.platform !== undefined) existingSysinfo.platform = sysinfoDto.platform;
       if (sysinfoDto.cpu !== undefined) existingSysinfo.cpu = sysinfoDto.cpu;
       if (sysinfoDto.memory !== undefined) existingSysinfo.memory = sysinfoDto.memory;
-      if (sysinfoDto.display !== undefined) existingSysinfo.display = sysinfoDto.display;
-      if (sysinfoDto.version !== undefined) existingSysinfo.version = sysinfoDto.version;
-      if (sysinfoDto.id !== undefined) existingSysinfo.deviceId = sysinfoDto.id;
       
       // 更新预设字段（如果提供了新值）
       if (sysinfoDto['preset-address-book-name']) {
@@ -83,16 +79,12 @@ export class SysinfoService {
       // 不存在，创建新记录
       this.logger.debug(`设备 ${sysinfoDto.uuid} 不存在，创建新系统信息`);
       sysinfo = this.sysinfoRepository.create({
+        uuid: sysinfoDto.uuid,
         hostname: sysinfoDto.hostname,
         username: sysinfoDto.username,
         os: sysinfoDto.os,
-        platform: sysinfoDto.platform,
         cpu: sysinfoDto.cpu,
         memory: sysinfoDto.memory,
-        display: sysinfoDto.display,
-        version: sysinfoDto.version,
-        deviceId: sysinfoDto.id,
-        uuid: sysinfoDto.uuid,
         presetAddressBookName: sysinfoDto['preset-address-book-name'],
         presetAddressBookTag: sysinfoDto['preset-address-book-tag'],
         presetAddressBookAlias: sysinfoDto['preset-address-book-alias'],
@@ -149,11 +141,11 @@ export class SysinfoService {
 
     // 检查设备是否已存在于地址簿
     const existingPeer = await this.abPeerRepository.findOne({
-      where: { id: sysinfo.deviceId, abGuid: addressBook.guid },
+      where: { id: sysinfo.uuid, abGuid: addressBook.guid },
     });
 
     if (existingPeer) {
-      this.logger.debug(`设备 ${sysinfo.deviceId} 已存在于地址簿 ${addressBook.name}`);
+      this.logger.debug(`设备 ${sysinfo.uuid} 已存在于地址簿 ${addressBook.name}`);
       return;
     }
 
@@ -182,11 +174,10 @@ export class SysinfoService {
 
     // 创建设备记录
     const peer = this.abPeerRepository.create({
-      id: sysinfo.deviceId,
+      id: sysinfo.uuid,
       abGuid: addressBook.guid,
       username: sysinfo.presetUsername || sysinfo.username,
       hostname: sysinfo.hostname,
-      platform: sysinfo.platform,
       alias: sysinfo.presetAddressBookAlias || sysinfo.hostname,
       password: sysinfo.presetAddressBookPassword,
       note: sysinfo.presetAddressBookNote || sysinfo.presetNote,
@@ -195,7 +186,7 @@ export class SysinfoService {
     });
 
     await this.abPeerRepository.save(peer);
-    this.logger.log(`设备 ${sysinfo.deviceId} 已添加到地址簿 ${addressBook.name}`);
+    this.logger.log(`设备 ${sysinfo.uuid} 已添加到地址簿 ${addressBook.name}`);
   }
 
   /**
@@ -224,28 +215,14 @@ export class SysinfoService {
     // 检查是否已存在
     // 由于 AccessiblePeer 需要 userId，这里暂时跳过
     // 实际使用时，应该由管理员手动分配设备给用户
-    this.logger.log(`设备 ${sysinfo.deviceId} 已关联到设备组 ${deviceGroup.name}`);
+    this.logger.log(`设备 ${sysinfo.uuid} 已关联到设备组 ${deviceGroup.name}`);
   }
 
   async findAll(): Promise<Sysinfo[]> {
     return await this.sysinfoRepository.find();
   }
 
-  async findById(id: number): Promise<Sysinfo | null> {
-    return await this.sysinfoRepository.findOne({ where: { id } });
-  }
-
-  async findByDeviceId(deviceId: string): Promise<Sysinfo[]> {
-    return await this.sysinfoRepository.find({ where: { deviceId } });
-  }
-
-  /**
-   * 根据UUID查找最新的系统信息
-   */
-  async findLatestByUuid(uuid: string): Promise<Sysinfo | null> {
-    return await this.sysinfoRepository.findOne({
-      where: { uuid },
-      order: { createdAt: 'DESC' },
-    });
+  async findByUuid(uuid: string): Promise<Sysinfo | null> {
+    return await this.sysinfoRepository.findOne({ where: { uuid } });
   }
 }

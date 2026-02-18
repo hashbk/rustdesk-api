@@ -23,7 +23,6 @@ import { AbTag } from './address-book/entities/ab-tag.entity';
 import { SharedAddressBook } from './address-book/entities/shared-address-book.entity';
 import { User } from './user/entities/user.entity';
 import { UserToken } from './user/entities/user-token.entity';
-import { UserDevice } from './user/entities/user-device.entity';
 import { OidcProvider } from './oidc/entities/oidc-provider.entity';
 import { OidcAuthState } from './oidc/entities/oidc-auth-state.entity';
 import { DeviceGroup } from './device-group/entities/device-group.entity';
@@ -35,7 +34,7 @@ import { GlobalJwtAuthGuard } from './auth/providers/jwt-auth-guard.provider';
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AbPeer, AbTag, SharedAddressBook, User, UserToken, UserDevice, OidcProvider, OidcAuthState, DeviceGroup, AccessiblePeer],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AbPeer, AbTag, SharedAddressBook, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, AccessiblePeer],
       synchronize: true,
       logging: false,
     }),

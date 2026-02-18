@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('peers')
 export class Peer {
@@ -8,14 +8,15 @@ export class Peer {
   @Column()
   id: string;
 
+  @Column({ nullable: true })
+  @Index()
+  userId: number;
+
   @Column()
   ver: number;
 
   @Column()
   modifiedAt: number;
-
-  @Column({ type: 'text', nullable: true })
-  conns: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

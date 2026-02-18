@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
 import { UserToken } from './user-token.entity';
-import { UserDevice } from './user-device.entity';
 
 /**
  * 用户状态枚举
@@ -89,9 +88,6 @@ export class User {
 
   @OneToMany(() => UserToken, token => token.user, { cascade: true })
   tokens: UserToken[];
-
-  @OneToMany(() => UserDevice, device => device.user, { cascade: true })
-  devices: UserDevice[];
 
   @CreateDateColumn()
   createdAt: Date;

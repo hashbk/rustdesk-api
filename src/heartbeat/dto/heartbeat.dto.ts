@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsNotEmpty } from 'class-validator';
 
 export class HeartbeatDto {
   @IsString()
@@ -16,9 +16,4 @@ export class HeartbeatDto {
   @IsNumber()
   @IsNotEmpty()
   modified_at: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsNumber({}, { each: true })
-  conns?: number[];
 }

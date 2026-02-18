@@ -7,11 +7,11 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
-import { UserDevice } from '../user/entities/user-device.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserToken, UserDevice]),
+    TypeOrmModule.forFeature([User, UserToken, Peer]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'rustdesk-api-secret-key-change-in-production',
