@@ -133,11 +133,21 @@ export class AuditService {
   }
 
   async auditAlarm(dto: AlarmAuditDto): Promise<AlarmAudit> {
+    // 解析 info JSON 字符串
+    let info: { id?: string; ip: string; name?: string };
+    try {
+      info = JSON.parse(dto.info);
+    } catch (e) {
+      info = { ip: '' };
+    }
+
     const alarmAudit = this.alarmAuditRepository.create({
       deviceId: dto.id,
       deviceUuid: dto.uuid,
       typ: dto.typ,
-      info: dto.info,
+      infoId: info.id || null,
+      infoIp: info.ip || '',
+      infoName: info.name || null,
     });
 
     return await this.alarmAuditRepository.save(alarmAudit);
@@ -287,7 +297,11 @@ export class AuditService {
         device_id: audit.deviceId,
         device_uuid: audit.deviceUuid,
         type: audit.typ,
-        info: audit.info,
+        info: {
+          id: audit.infoId,
+          ip: audit.infoIp,
+          name: audit.infoName,
+        },
         created_at: audit.createdAt,
       })),
       total,

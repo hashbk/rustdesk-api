@@ -26,8 +26,14 @@ export class AlarmAudit {
   @Column({ type: 'int' }) // SQLite 使用 int，其他数据库可以用 enum
   typ: number;
 
-  @Column({ type: 'json' })
-  info: Record<string, any>;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  infoId: string | null;
+
+  @Column({ type: 'varchar', length: 45 })
+  infoIp: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  infoName: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

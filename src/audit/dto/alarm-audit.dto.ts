@@ -1,4 +1,4 @@
-import { IsString, IsInt, Min, Max, IsObject } from 'class-validator';
+import { IsString, IsInt, Min, Max } from 'class-validator';
 
 export class AlarmAuditDto {
   @IsString()
@@ -12,6 +12,6 @@ export class AlarmAuditDto {
   @Max(6)
   typ: number;
 
-  @IsObject()
-  info: Record<string, any>;
+  @IsString()
+  info: string;
 }
