@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Sysinfo } from './entities/sysinfo.entity';
 import { SysinfoDto } from './dto/sysinfo.dto';
-import { AddressBook, AbPeer, AbTag } from '../address-book/entities';
+import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/entities';
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
 import { AccessiblePeer, PeerInfo } from '../device-group/entities/accessible-peer.entity';
 
@@ -16,10 +17,10 @@ export class SysinfoService {
     private sysinfoRepository: Repository<Sysinfo>,
     @InjectRepository(AddressBook)
     private addressBookRepository: Repository<AddressBook>,
-    @InjectRepository(AbPeer)
-    private abPeerRepository: Repository<AbPeer>,
-    @InjectRepository(AbTag)
-    private abTagRepository: Repository<AbTag>,
+    @InjectRepository(AddressBookPeer)
+    private addressBookPeerRepository: Repository<AddressBookPeer>,
+    @InjectRepository(AddressBookTag)
+    private addressBookTagRepository: Repository<AddressBookTag>,
     @InjectRepository(DeviceGroup)
     private deviceGroupRepository: Repository<DeviceGroup>,
     @InjectRepository(AccessiblePeer)
@@ -140,8 +141,8 @@ export class SysinfoService {
     }
 
     // 检查设备是否已存在于地址簿
-    const existingPeer = await this.abPeerRepository.findOne({
-      where: { id: sysinfo.uuid, abGuid: addressBook.guid },
+    const existingPeer = await this.addressBookPeerRepository.findOne({
+      where: { deviceId: sysinfo.uuid, addressBookGuid: addressBook.guid },
     });
 
     if (existingPeer) {
@@ -156,36 +157,35 @@ export class SysinfoService {
       
       // 确保标签存在
       for (const tagName of tags) {
-        const existingTag = await this.abTagRepository.findOne({
-          where: { name: tagName, abGuid: addressBook.guid },
+        const existingTag = await this.addressBookTagRepository.findOne({
+          where: { name: tagName, addressBookGuid: addressBook.guid },
         });
 
         if (!existingTag) {
-          const newTag = this.abTagRepository.create({
+          const newTag = this.addressBookTagRepository.create({
+            guid: uuidv4(),
+            addressBookGuid: addressBook.guid,
             name: tagName,
-            abGuid: addressBook.guid,
             color: 0,
           });
-          await this.abTagRepository.save(newTag);
+          await this.addressBookTagRepository.save(newTag);
           this.logger.log(`创建标签: ${tagName}`);
         }
       }
     }
 
     // 创建设备记录
-    const peer = this.abPeerRepository.create({
-      id: sysinfo.uuid,
-      abGuid: addressBook.guid,
-      username: sysinfo.presetUsername || sysinfo.username,
-      hostname: sysinfo.hostname,
+    const peerGuid = uuidv4();
+    const peer = this.addressBookPeerRepository.create({
+      guid: peerGuid,
+      addressBookGuid: addressBook.guid,
+      deviceId: sysinfo.uuid,
       alias: sysinfo.presetAddressBookAlias || sysinfo.hostname,
       password: sysinfo.presetAddressBookPassword,
       note: sysinfo.presetAddressBookNote || sysinfo.presetNote,
-      tags: tags.length > 0 ? JSON.stringify(tags) : undefined,
-      deviceGroupName: sysinfo.presetDeviceGroupName,
     });
 
-    await this.abPeerRepository.save(peer);
+    await this.addressBookPeerRepository.save(peer);
     this.logger.log(`设备 ${sysinfo.uuid} 已添加到地址簿 ${addressBook.name}`);
   }
 

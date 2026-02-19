@@ -18,9 +18,10 @@ import { ConnectionAudit } from './audit/entities/connection-audit.entity';
 import { FileAudit } from './audit/entities/file-audit.entity';
 import { AlarmAudit } from './audit/entities/alarm-audit.entity';
 import { AddressBook } from './address-book/entities/address-book.entity';
-import { AbPeer } from './address-book/entities/ab-peer.entity';
-import { AbTag } from './address-book/entities/ab-tag.entity';
-import { SharedAddressBook } from './address-book/entities/shared-address-book.entity';
+import { AddressBookPeer } from './address-book/entities/address-book-peer.entity';
+import { AddressBookTag } from './address-book/entities/address-book-tag.entity';
+import { AddressBookShare } from './address-book/entities/address-book-share.entity';
+import { AddressBookPeerTag } from './address-book/entities/address-book-peer-tag.entity';
 import { User } from './user/entities/user.entity';
 import { UserToken } from './user/entities/user-token.entity';
 import { OidcProvider } from './oidc/entities/oidc-provider.entity';
@@ -34,7 +35,7 @@ import { GlobalJwtAuthGuard } from './auth/providers/jwt-auth-guard.provider';
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AbPeer, AbTag, SharedAddressBook, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, AccessiblePeer],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, AccessiblePeer],
       synchronize: true,
       logging: false,
     }),

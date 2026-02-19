@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, HttpCode, HttpS
 import { AddressBookService } from './address-book.service';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ShareRule } from './entities/shared-address-book.entity';
+import { ShareRule } from './entities/address-book-share.entity';
 
 @Controller('ab')
 export class AddressBookController {
@@ -96,9 +96,9 @@ export class AddressBookController {
   // 删除设备
   @Delete('peer/:guid')
   @HttpCode(HttpStatus.OK)
-  async deletePeers(@Param('guid') guid: string, @Body() ids: string[], @CurrentUser('id') userId: number) {
+  async deletePeers(@Param('guid') guid: string, @Body() guids: string[], @CurrentUser('id') userId: number) {
     try {
-      await this.addressBookService.deletePeers(guid, ids, String(userId));
+      await this.addressBookService.deletePeers(guid, guids, String(userId));
       return '';
     } catch (e) {
       return { error: e.message };
@@ -144,9 +144,9 @@ export class AddressBookController {
   // 删除标签
   @Delete('tag/:guid')
   @HttpCode(HttpStatus.OK)
-  async deleteTags(@Param('guid') guid: string, @Body() names: string[], @CurrentUser('id') userId: number) {
+  async deleteTags(@Param('guid') guid: string, @Body() guids: string[], @CurrentUser('id') userId: number) {
     try {
-      await this.addressBookService.deleteTags(guid, names, String(userId));
+      await this.addressBookService.deleteTags(guid, guids, String(userId));
       return '';
     } catch (e) {
       return { error: e.message };

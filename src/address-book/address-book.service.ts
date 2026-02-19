@@ -1,36 +1,41 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { AddressBook, AbPeer, AbTag, SharedAddressBook, ShareRule } from './entities';
-import { AddPeerDto, UpdatePeerDto, DeletePeersDto, AddTagDto, UpdateTagDto, RenameTagDto, DeleteTagsDto, PaginationDto, PeersQueryDto } from './dto';
+import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, ShareRule } from './entities';
+import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
+import { Sysinfo } from '../system/entities/sysinfo.entity';
 
 @Injectable()
 export class AddressBookService {
   constructor(
     @InjectRepository(AddressBook)
     private addressBookRepository: Repository<AddressBook>,
-    @InjectRepository(AbPeer)
-    private abPeerRepository: Repository<AbPeer>,
-    @InjectRepository(AbTag)
-    private abTagRepository: Repository<AbTag>,
-    @InjectRepository(SharedAddressBook)
-    private sharedAddressBookRepository: Repository<SharedAddressBook>,
+    @InjectRepository(AddressBookPeer)
+    private addressBookPeerRepository: Repository<AddressBookPeer>,
+    @InjectRepository(AddressBookTag)
+    private addressBookTagRepository: Repository<AddressBookTag>,
+    @InjectRepository(AddressBookShare)
+    private addressBookShareRepository: Repository<AddressBookShare>,
+    @InjectRepository(AddressBookPeerTag)
+    private addressBookPeerTagRepository: Repository<AddressBookPeerTag>,
+    @InjectRepository(Sysinfo)
+    private sysinfoRepository: Repository<Sysinfo>,
   ) {}
 
   /**
    * 检查用户是否有权限访问地址簿
-   * @param abGuid 地址簿GUID
+   * @param addressBookGuid 地址簿GUID
    * @param userId 用户ID
    * @param requiredRule 需要的权限级别
    */
   private async checkAddressBookAccess(
-    abGuid: string,
+    addressBookGuid: string,
     userId: string,
     requiredRule: ShareRule = ShareRule.READ,
   ): Promise<AddressBook> {
     const addressBook = await this.addressBookRepository.findOne({
-      where: { guid: abGuid },
+      where: { guid: addressBookGuid },
     });
 
     if (!addressBook) {
@@ -43,8 +48,8 @@ export class AddressBookService {
     }
 
     // 检查共享权限
-    const shared = await this.sharedAddressBookRepository.findOne({
-      where: { abGuid, sharedWith: userId },
+    const shared = await this.addressBookShareRepository.findOne({
+      where: { addressBookGuid, sharedWithUserId: userId },
     });
 
     if (!shared) {
@@ -62,7 +67,7 @@ export class AddressBookService {
 
   // 获取地址簿设置
   async getSettings() {
-    return { max_peer_one_ab: 1000 };
+    return { max_peer_one_ab: 0 };
   }
 
   // 获取个人地址簿GUID
@@ -77,7 +82,6 @@ export class AddressBookService {
         owner: userId,
         name: 'Personal',
         isPersonal: true,
-        maxPeers: 1000,
       });
       await this.addressBookRepository.save(addressBook);
     }
@@ -90,15 +94,15 @@ export class AddressBookService {
     const { current = 1, pageSize = 100 } = query;
     const skip = (current - 1) * pageSize;
 
-    const [shared, total] = await this.sharedAddressBookRepository.findAndCount({
-      where: { sharedWith: userId },
+    const [shared, total] = await this.addressBookShareRepository.findAndCount({
+      where: { sharedWithUserId: userId },
       relations: ['addressBook'],
       skip,
       take: pageSize,
     });
 
     const data = shared.map(s => ({
-      guid: s.abGuid,
+      guid: s.addressBookGuid,
       name: s.addressBook?.name || '',
       owner: s.addressBook?.owner || '',
       note: s.addressBook?.note || '',
@@ -127,289 +131,287 @@ export class AddressBookService {
       await this.checkAddressBookAccess(ab, userId, ShareRule.READ);
     }
 
-    const [peers, total] = await this.abPeerRepository.findAndCount({
-      where: { abGuid: ab },
+    const [peers, total] = await this.addressBookPeerRepository.findAndCount({
+      where: { addressBookGuid: ab },
+      relations: ['tags'],
       skip,
       take: pageSize,
     });
 
-    const data = peers.map(p => ({
-      id: p.id,
-      hash: p.hash,
-      password: p.password,
-      username: p.username,
-      hostname: p.hostname,
-      platform: p.platform,
-      alias: p.alias,
-      tags: p.tags ? JSON.parse(p.tags) : [],
-      forceAlwaysRelay: p.forceAlwaysRelay,
-      rdpPort: p.rdpPort,
-      rdpUsername: p.rdpUsername,
-      loginName: p.loginName,
-      device_group_name: p.deviceGroupName,
-      note: p.note,
-      same_server: p.sameServer,
-    }));
+    // 获取所有设备ID，用于从sysinfos表获取信息
+    const deviceIds = peers.map(p => p.deviceId);
+    const sysinfos = deviceIds.length > 0
+      ? await this.sysinfoRepository.find({
+          where: { uuid: In(deviceIds) },
+        })
+      : [];
+
+    const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
+
+    const data = peers.map(p => {
+      const sysinfo = sysinfoMap.get(p.deviceId);
+      return {
+        guid: p.guid,
+        deviceId: p.deviceId,
+        hash: p.hash,
+        password: p.password,
+        username: sysinfo?.username || '',
+        hostname: sysinfo?.hostname || '',
+        platform: sysinfo?.os || '',
+        alias: p.alias,
+        tags: p.tags?.map(t => t.name) || [],
+        note: p.note,
+      };
+    });
 
     return { total, data };
   }
 
   // 获取地址簿标签列表
-  async getTags(guid: string, userId?: string) {
+  async getTags(addressBookGuid: string, userId?: string) {
     // 如果提供了用户ID，验证访问权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ);
     }
 
-    const tags = await this.abTagRepository.find({
-      where: { abGuid: guid },
+    const tags = await this.addressBookTagRepository.find({
+      where: { addressBookGuid },
     });
 
     return tags.map(t => ({
+      guid: t.guid,
       name: t.name,
       color: t.color,
     }));
   }
 
   // 添加设备到地址簿
-  async addPeer(guid: string, dto: AddPeerDto, userId?: string) {
+  async addPeer(addressBookGuid: string, dto: AddPeerDto, userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
     const addressBook = await this.addressBookRepository.findOne({
-      where: { guid },
+      where: { guid: addressBookGuid },
     });
 
     if (!addressBook) {
       throw new NotFoundException('地址簿不存在');
     }
 
-    // 检查设备数量限制
-    const count = await this.abPeerRepository.count({
-      where: { abGuid: guid },
-    });
-
-    if (count >= addressBook.maxPeers) {
-      throw new BadRequestException('已达到地址簿最大设备数限制');
-    }
-
     // 检查设备是否已存在
-    const existingPeer = await this.abPeerRepository.findOne({
-      where: { id: dto.id, abGuid: guid },
+    const existingPeer = await this.addressBookPeerRepository.findOne({
+      where: { deviceId: dto.deviceId, addressBookGuid },
     });
 
     if (existingPeer) {
       throw new BadRequestException('设备已存在于地址簿中');
     }
 
-    const peer = this.abPeerRepository.create({
-      id: dto.id,
-      abGuid: guid,
+    const peerGuid = uuidv4();
+    const peer = this.addressBookPeerRepository.create({
+      guid: peerGuid,
+      addressBookGuid,
+      deviceId: dto.deviceId,
       hash: dto.hash,
       password: dto.password,
-      username: dto.username,
-      hostname: dto.hostname,
-      platform: dto.platform,
       alias: dto.alias,
-      tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
       note: dto.note,
-      forceAlwaysRelay: dto.forceAlwaysRelay,
-      rdpPort: dto.rdpPort,
-      rdpUsername: dto.rdpUsername,
-      loginName: dto.loginName,
-      deviceGroupName: dto.device_group_name,
-      sameServer: dto.same_server || false,
     });
 
-    await this.abPeerRepository.save(peer);
+    await this.addressBookPeerRepository.save(peer);
+
+    // 处理标签关联
+    if (dto.tagGuids && dto.tagGuids.length > 0) {
+      const tags = await this.addressBookTagRepository.find({
+        where: { guid: In(dto.tagGuids), addressBookGuid },
+      });
+
+      for (const tag of tags) {
+        const peerTag = this.addressBookPeerTagRepository.create({
+          peerGuid,
+          tagGuid: tag.guid,
+        });
+        await this.addressBookPeerTagRepository.save(peerTag);
+      }
+    }
+
     return {};
   }
 
   // 更新设备信息
-  async updatePeer(guid: string, dto: UpdatePeerDto, userId?: string) {
+  async updatePeer(addressBookGuid: string, dto: UpdatePeerDto, userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    const peer = await this.abPeerRepository.findOne({
-      where: { id: dto.id, abGuid: guid },
+    const peer = await this.addressBookPeerRepository.findOne({
+      where: { guid: dto.guid, addressBookGuid },
     });
 
     if (!peer) {
       throw new NotFoundException('设备不存在');
     }
 
-    const updateData: Partial<AbPeer> = { id: dto.id, abGuid: guid };
+    const updateData: Partial<AddressBookPeer> = {};
 
     if (dto.hash !== undefined) updateData.hash = dto.hash;
     if (dto.password !== undefined) updateData.password = dto.password;
-    if (dto.username !== undefined) updateData.username = dto.username;
-    if (dto.hostname !== undefined) updateData.hostname = dto.hostname;
-    if (dto.platform !== undefined) updateData.platform = dto.platform;
     if (dto.alias !== undefined) updateData.alias = dto.alias;
-    if (dto.tags !== undefined) updateData.tags = JSON.stringify(dto.tags);
     if (dto.note !== undefined) updateData.note = dto.note;
-    if (dto.forceAlwaysRelay !== undefined) updateData.forceAlwaysRelay = dto.forceAlwaysRelay;
-    if (dto.rdpPort !== undefined) updateData.rdpPort = dto.rdpPort;
-    if (dto.rdpUsername !== undefined) updateData.rdpUsername = dto.rdpUsername;
-    if (dto.loginName !== undefined) updateData.loginName = dto.loginName;
-    if (dto.device_group_name !== undefined) updateData.deviceGroupName = dto.device_group_name;
-    if (dto.same_server !== undefined) updateData.sameServer = dto.same_server;
 
-    await this.abPeerRepository.update({ id: dto.id, abGuid: guid }, updateData);
+    await this.addressBookPeerRepository.update({ guid: dto.guid }, updateData);
+
+    // 更新标签关联
+    if (dto.tagGuids !== undefined) {
+      // 删除旧的标签关联
+      await this.addressBookPeerTagRepository.delete({ peerGuid: dto.guid });
+
+      // 添加新的标签关联
+      if (dto.tagGuids.length > 0) {
+        const tags = await this.addressBookTagRepository.find({
+          where: { guid: In(dto.tagGuids), addressBookGuid },
+        });
+
+        for (const tag of tags) {
+          const peerTag = this.addressBookPeerTagRepository.create({
+            peerGuid: dto.guid,
+            tagGuid: tag.guid,
+          });
+          await this.addressBookPeerTagRepository.save(peerTag);
+        }
+      }
+    }
+
     return {};
   }
 
   // 删除设备
-  async deletePeers(guid: string, ids: string[], userId?: string) {
+  async deletePeers(addressBookGuid: string, guids: string[], userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    if (!ids || ids.length === 0) {
+    if (!guids || guids.length === 0) {
       throw new BadRequestException('请提供要删除的设备ID');
     }
 
-    await this.abPeerRepository.delete({
-      id: In(ids),
-      abGuid: guid,
+    await this.addressBookPeerRepository.delete({
+      guid: In(guids),
+      addressBookGuid,
     });
 
     return {};
   }
 
   // 添加标签
-  async addTag(guid: string, dto: AddTagDto, userId?: string) {
+  async addTag(addressBookGuid: string, dto: AddTagDto, userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
     const addressBook = await this.addressBookRepository.findOne({
-      where: { guid },
+      where: { guid: addressBookGuid },
     });
 
     if (!addressBook) {
       throw new NotFoundException('地址簿不存在');
     }
 
-    const existingTag = await this.abTagRepository.findOne({
-      where: { name: dto.name, abGuid: guid },
+    const existingTag = await this.addressBookTagRepository.findOne({
+      where: { name: dto.name, addressBookGuid },
     });
 
     if (existingTag) {
       throw new BadRequestException('标签已存在');
     }
 
-    const tag = this.abTagRepository.create({
+    const tag = this.addressBookTagRepository.create({
+      guid: uuidv4(),
+      addressBookGuid,
       name: dto.name,
-      abGuid: guid,
       color: dto.color || 0,
     });
 
-    await this.abTagRepository.save(tag);
+    await this.addressBookTagRepository.save(tag);
     return {};
   }
 
   // 重命名标签
-  async renameTag(guid: string, dto: RenameTagDto, userId?: string) {
+  async renameTag(addressBookGuid: string, dto: RenameTagDto, userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    const tag = await this.abTagRepository.findOne({
-      where: { name: dto.old, abGuid: guid },
+    const tag = await this.addressBookTagRepository.findOne({
+      where: { guid: dto.guid, addressBookGuid },
     });
 
     if (!tag) {
       throw new NotFoundException('标签不存在');
     }
 
-    const existingTag = await this.abTagRepository.findOne({
-      where: { name: dto.new, abGuid: guid },
+    const existingTag = await this.addressBookTagRepository.findOne({
+      where: { name: dto.newName, addressBookGuid },
     });
 
     if (existingTag) {
       throw new BadRequestException('新标签名已存在');
     }
 
-    // 更新标签名
-    await this.abTagRepository.update({ name: dto.old, abGuid: guid }, { name: dto.new });
-
-    // 更新所有使用该标签的设备
-    const peers = await this.abPeerRepository.find({
-      where: { abGuid: guid },
-    });
-
-    for (const peer of peers) {
-      if (peer.tags) {
-        const tags: string[] = JSON.parse(peer.tags);
-        const index = tags.indexOf(dto.old);
-        if (index !== -1) {
-          tags[index] = dto.new;
-          await this.abPeerRepository.update({ id: peer.id, abGuid: guid }, { tags: JSON.stringify(tags) });
-        }
-      }
-    }
-
+    await this.addressBookTagRepository.update({ guid: dto.guid }, { name: dto.newName });
     return {};
   }
 
   // 更新标签颜色
-  async updateTag(guid: string, dto: UpdateTagDto, userId?: string) {
+  async updateTag(addressBookGuid: string, dto: UpdateTagDto, userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    const tag = await this.abTagRepository.findOne({
-      where: { name: dto.name, abGuid: guid },
+    const tag = await this.addressBookTagRepository.findOne({
+      where: { guid: dto.guid, addressBookGuid },
     });
 
     if (!tag) {
       throw new NotFoundException('标签不存在');
     }
 
-    await this.abTagRepository.update({ name: dto.name, abGuid: guid }, { color: dto.color });
+    const updateData: Partial<AddressBookTag> = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.color !== undefined) updateData.color = dto.color;
+
+    await this.addressBookTagRepository.update({ guid: dto.guid }, updateData);
     return {};
   }
 
   // 删除标签
-  async deleteTags(guid: string, names: string[], userId?: string) {
+  async deleteTags(addressBookGuid: string, guids: string[], userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
-      await this.checkAddressBookAccess(guid, userId, ShareRule.READ_WRITE);
+      await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    if (!names || names.length === 0) {
-      throw new BadRequestException('请提供要删除的标签名');
+    if (!guids || guids.length === 0) {
+      throw new BadRequestException('请提供要删除的标签ID');
     }
+
+    // 删除标签关联
+    await this.addressBookPeerTagRepository.delete({
+      tagGuid: In(guids),
+    });
 
     // 删除标签
-    await this.abTagRepository.delete({
-      name: In(names),
-      abGuid: guid,
+    await this.addressBookTagRepository.delete({
+      guid: In(guids),
+      addressBookGuid,
     });
-
-    // 从所有设备中移除这些标签
-    const peers = await this.abPeerRepository.find({
-      where: { abGuid: guid },
-    });
-
-    for (const peer of peers) {
-      if (peer.tags) {
-        const tags: string[] = JSON.parse(peer.tags);
-        const newTags = tags.filter(t => !names.includes(t));
-        if (newTags.length !== tags.length) {
-          await this.abPeerRepository.update({ id: peer.id, abGuid: guid }, { tags: JSON.stringify(newTags) });
-        }
-      }
-    }
 
     return {};
   }
@@ -418,43 +420,43 @@ export class AddressBookService {
    * 共享地址簿给其他用户
    */
   async shareAddressBook(
-    abGuid: string,
+    addressBookGuid: string,
     targetUserId: string,
     rule: ShareRule,
     ownerUserId: string,
   ) {
     // 验证所有权
-    const addressBook = await this.checkAddressBookAccess(abGuid, ownerUserId, ShareRule.FULL_CONTROL);
+    await this.checkAddressBookAccess(addressBookGuid, ownerUserId, ShareRule.FULL_CONTROL);
 
     // 检查是否已共享
-    let shared = await this.sharedAddressBookRepository.findOne({
-      where: { abGuid, sharedWith: targetUserId },
+    let shared = await this.addressBookShareRepository.findOne({
+      where: { addressBookGuid, sharedWithUserId: targetUserId },
     });
 
     if (shared) {
       shared.rule = rule;
     } else {
-      shared = this.sharedAddressBookRepository.create({
-        abGuid,
-        sharedWith: targetUserId,
+      shared = this.addressBookShareRepository.create({
+        addressBookGuid,
+        sharedWithUserId: targetUserId,
         rule,
       });
     }
 
-    await this.sharedAddressBookRepository.save(shared);
+    await this.addressBookShareRepository.save(shared);
     return { message: '共享成功' };
   }
 
   /**
    * 取消共享地址簿
    */
-  async unshareAddressBook(abGuid: string, targetUserId: string, ownerUserId: string) {
+  async unshareAddressBook(addressBookGuid: string, targetUserId: string, ownerUserId: string) {
     // 验证所有权
-    await this.checkAddressBookAccess(abGuid, ownerUserId, ShareRule.FULL_CONTROL);
+    await this.checkAddressBookAccess(addressBookGuid, ownerUserId, ShareRule.FULL_CONTROL);
 
-    await this.sharedAddressBookRepository.delete({
-      abGuid,
-      sharedWith: targetUserId,
+    await this.addressBookShareRepository.delete({
+      addressBookGuid,
+      sharedWithUserId: targetUserId,
     });
 
     return { message: '取消共享成功' };
@@ -479,20 +481,30 @@ export class AddressBookService {
         owner: userId,
         name: 'Personal',
         isPersonal: true,
-        maxPeers: 1000,
       });
       await this.addressBookRepository.save(addressBook);
     }
 
     // 获取所有标签
-    const tags = await this.abTagRepository.find({
-      where: { abGuid: addressBook.guid },
+    const tags = await this.addressBookTagRepository.find({
+      where: { addressBookGuid: addressBook.guid },
     });
 
-    // 获取所有设备
-    const peers = await this.abPeerRepository.find({
-      where: { abGuid: addressBook.guid },
+    // 获取所有设备及其标签
+    const peers = await this.addressBookPeerRepository.find({
+      where: { addressBookGuid: addressBook.guid },
+      relations: ['tags'],
     });
+
+    // 获取所有设备ID，用于从sysinfos表获取信息
+    const deviceIds = peers.map(p => p.deviceId);
+    const sysinfos = deviceIds.length > 0
+      ? await this.sysinfoRepository.find({
+          where: { uuid: In(deviceIds) },
+        })
+      : [];
+
+    const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
     // 如果地址簿为空，返回 "null"
     if (tags.length === 0 && peers.length === 0) {
@@ -506,15 +518,18 @@ export class AddressBookService {
     }
 
     // 构建设备列表
-    const peersData = peers.map(p => ({
-      id: p.id,
-      hash: p.hash || '',
-      username: p.username || '',
-      hostname: p.hostname || '',
-      platform: p.platform || '',
-      alias: p.alias || '',
-      tags: p.tags ? JSON.parse(p.tags) : [],
-    }));
+    const peersData = peers.map(p => {
+      const sysinfo = sysinfoMap.get(p.deviceId);
+      return {
+        id: p.deviceId,
+        hash: p.hash || '',
+        username: sysinfo?.username || '',
+        hostname: sysinfo?.hostname || '',
+        platform: sysinfo?.os || '',
+        alias: p.alias || '',
+        tags: p.tags?.map(t => t.name) || [],
+      };
+    });
 
     // 构建标签列表
     const tagsList = tags.map(t => t.name);
@@ -571,12 +586,11 @@ export class AddressBookService {
         owner: userId,
         name: 'Personal',
         isPersonal: true,
-        maxPeers: 1000,
       });
       await this.addressBookRepository.save(addressBook);
     }
 
-    const abGuid = addressBook.guid;
+    const addressBookGuid = addressBook.guid;
 
     // 解析标签颜色
     let tagColors: Record<string, number> = {};
@@ -589,35 +603,52 @@ export class AddressBookService {
     }
 
     // 删除所有现有标签和设备
-    await this.abTagRepository.delete({ abGuid });
-    await this.abPeerRepository.delete({ abGuid });
+    await this.addressBookPeerTagRepository.delete({});
+    await this.addressBookTagRepository.delete({ addressBookGuid });
+    await this.addressBookPeerRepository.delete({ addressBookGuid });
 
     // 创建新标签
+    const tagNameToGuid: Record<string, string> = {};
     if (parsedData.tags && parsedData.tags.length > 0) {
       for (const tagName of parsedData.tags) {
-        const tag = this.abTagRepository.create({
+        const tagGuid = uuidv4();
+        const tag = this.addressBookTagRepository.create({
+          guid: tagGuid,
+          addressBookGuid,
           name: tagName,
-          abGuid,
           color: tagColors[tagName] || 0,
         });
-        await this.abTagRepository.save(tag);
+        await this.addressBookTagRepository.save(tag);
+        tagNameToGuid[tagName] = tagGuid;
       }
     }
 
     // 创建新设备
     if (parsedData.peers && parsedData.peers.length > 0) {
       for (const peerData of parsedData.peers) {
-        const peer = this.abPeerRepository.create({
-          id: peerData.id,
-          abGuid,
+        const peerGuid = uuidv4();
+        const peer = this.addressBookPeerRepository.create({
+          guid: peerGuid,
+          addressBookGuid,
+          deviceId: peerData.id,
           hash: peerData.hash || '',
-          username: peerData.username || '',
-          hostname: peerData.hostname || '',
-          platform: peerData.platform || '',
           alias: peerData.alias || '',
-          tags: peerData.tags ? JSON.stringify(peerData.tags) : '[]',
         });
-        await this.abPeerRepository.save(peer);
+        await this.addressBookPeerRepository.save(peer);
+
+        // 处理标签关联
+        if (peerData.tags && peerData.tags.length > 0) {
+          for (const tagName of peerData.tags) {
+            const tagGuid = tagNameToGuid[tagName];
+            if (tagGuid) {
+              const peerTag = this.addressBookPeerTagRepository.create({
+                peerGuid,
+                tagGuid,
+              });
+              await this.addressBookPeerTagRepository.save(peerTag);
+            }
+          }
+        }
       }
     }
 
