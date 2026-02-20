@@ -151,8 +151,7 @@ export class AddressBookService {
     const data = peers.map(p => {
       const sysinfo = sysinfoMap.get(p.deviceId);
       return {
-        guid: p.guid,
-        deviceId: p.deviceId,
+        id: p.deviceId,
         hash: p.hash,
         password: p.password,
         username: sysinfo?.username || '',
@@ -179,7 +178,6 @@ export class AddressBookService {
     });
 
     return tags.map(t => ({
-      guid: t.guid,
       name: t.name,
       color: t.color,
     }));
@@ -202,7 +200,7 @@ export class AddressBookService {
 
     // 检查设备是否已存在
     const existingPeer = await this.addressBookPeerRepository.findOne({
-      where: { deviceId: dto.deviceId, addressBookGuid },
+      where: { deviceId: dto.id, addressBookGuid },
     });
 
     if (existingPeer) {
@@ -213,7 +211,7 @@ export class AddressBookService {
     const peer = this.addressBookPeerRepository.create({
       guid: peerGuid,
       addressBookGuid,
-      deviceId: dto.deviceId,
+      deviceId: dto.id,
       hash: dto.hash,
       password: dto.password,
       alias: dto.alias,
@@ -222,13 +220,24 @@ export class AddressBookService {
 
     await this.addressBookPeerRepository.save(peer);
 
-    // 处理标签关联
-    if (dto.tagGuids && dto.tagGuids.length > 0) {
-      const tags = await this.addressBookTagRepository.find({
-        where: { guid: In(dto.tagGuids), addressBookGuid },
-      });
+    // 处理标签关联 - dto.tags 是标签名称数组
+    if (dto.tags && dto.tags.length > 0) {
+      for (const tagName of dto.tags) {
+        // 查找或创建标签
+        let tag = await this.addressBookTagRepository.findOne({
+          where: { name: tagName, addressBookGuid },
+        });
 
-      for (const tag of tags) {
+        if (!tag) {
+          tag = this.addressBookTagRepository.create({
+            guid: uuidv4(),
+            addressBookGuid,
+            name: tagName,
+            color: 0,
+          });
+          await this.addressBookTagRepository.save(tag);
+        }
+
         const peerTag = this.addressBookPeerTagRepository.create({
           peerGuid,
           tagGuid: tag.guid,
@@ -247,8 +256,9 @@ export class AddressBookService {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
+    // 根据设备ID查找设备
     const peer = await this.addressBookPeerRepository.findOne({
-      where: { guid: dto.guid, addressBookGuid },
+      where: { deviceId: dto.id, addressBookGuid },
     });
 
     if (!peer) {
@@ -262,22 +272,33 @@ export class AddressBookService {
     if (dto.alias !== undefined) updateData.alias = dto.alias;
     if (dto.note !== undefined) updateData.note = dto.note;
 
-    await this.addressBookPeerRepository.update({ guid: dto.guid }, updateData);
+    await this.addressBookPeerRepository.update({ guid: peer.guid }, updateData);
 
-    // 更新标签关联
-    if (dto.tagGuids !== undefined) {
+    // 更新标签关联 - dto.tags 是标签名称数组
+    if (dto.tags !== undefined) {
       // 删除旧的标签关联
-      await this.addressBookPeerTagRepository.delete({ peerGuid: dto.guid });
+      await this.addressBookPeerTagRepository.delete({ peerGuid: peer.guid });
 
       // 添加新的标签关联
-      if (dto.tagGuids.length > 0) {
-        const tags = await this.addressBookTagRepository.find({
-          where: { guid: In(dto.tagGuids), addressBookGuid },
-        });
+      if (dto.tags.length > 0) {
+        for (const tagName of dto.tags) {
+          // 查找或创建标签
+          let tag = await this.addressBookTagRepository.findOne({
+            where: { name: tagName, addressBookGuid },
+          });
 
-        for (const tag of tags) {
+          if (!tag) {
+            tag = this.addressBookTagRepository.create({
+              guid: uuidv4(),
+              addressBookGuid,
+              name: tagName,
+              color: 0,
+            });
+            await this.addressBookTagRepository.save(tag);
+          }
+
           const peerTag = this.addressBookPeerTagRepository.create({
-            peerGuid: dto.guid,
+            peerGuid: peer.guid,
             tagGuid: tag.guid,
           });
           await this.addressBookPeerTagRepository.save(peerTag);
@@ -289,18 +310,19 @@ export class AddressBookService {
   }
 
   // 删除设备
-  async deletePeers(addressBookGuid: string, guids: string[], userId?: string) {
+  async deletePeers(addressBookGuid: string, ids: string[], userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    if (!guids || guids.length === 0) {
+    if (!ids || ids.length === 0) {
       throw new BadRequestException('请提供要删除的设备ID');
     }
 
+    // ids 是设备ID数组，需要根据 deviceId 删除
     await this.addressBookPeerRepository.delete({
-      guid: In(guids),
+      deviceId: In(ids),
       addressBookGuid,
     });
 
@@ -348,8 +370,9 @@ export class AddressBookService {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
+    // 根据旧标签名查找标签
     const tag = await this.addressBookTagRepository.findOne({
-      where: { guid: dto.guid, addressBookGuid },
+      where: { name: dto.old, addressBookGuid },
     });
 
     if (!tag) {
@@ -357,14 +380,14 @@ export class AddressBookService {
     }
 
     const existingTag = await this.addressBookTagRepository.findOne({
-      where: { name: dto.newName, addressBookGuid },
+      where: { name: dto.new, addressBookGuid },
     });
 
     if (existingTag) {
       throw new BadRequestException('新标签名已存在');
     }
 
-    await this.addressBookTagRepository.update({ guid: dto.guid }, { name: dto.newName });
+    await this.addressBookTagRepository.update({ guid: tag.guid }, { name: dto.new });
     return {};
   }
 
@@ -375,41 +398,47 @@ export class AddressBookService {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
+    // 根据标签名查找标签
     const tag = await this.addressBookTagRepository.findOne({
-      where: { guid: dto.guid, addressBookGuid },
+      where: { name: dto.name, addressBookGuid },
     });
 
     if (!tag) {
       throw new NotFoundException('标签不存在');
     }
 
-    const updateData: Partial<AddressBookTag> = {};
-    if (dto.name !== undefined) updateData.name = dto.name;
-    if (dto.color !== undefined) updateData.color = dto.color;
-
-    await this.addressBookTagRepository.update({ guid: dto.guid }, updateData);
+    await this.addressBookTagRepository.update({ guid: tag.guid }, { color: dto.color });
     return {};
   }
 
   // 删除标签
-  async deleteTags(addressBookGuid: string, guids: string[], userId?: string) {
+  async deleteTags(addressBookGuid: string, names: string[], userId?: string) {
     // 如果提供了用户ID，验证写权限
     if (userId) {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    if (!guids || guids.length === 0) {
-      throw new BadRequestException('请提供要删除的标签ID');
+    if (!names || names.length === 0) {
+      throw new BadRequestException('请提供要删除的标签名');
     }
 
-    // 删除标签关联
-    await this.addressBookPeerTagRepository.delete({
-      tagGuid: In(guids),
+    // 获取要删除的标签GUID
+    const tags = await this.addressBookTagRepository.find({
+      where: { name: In(names), addressBookGuid },
     });
+
+    const tagGuids = tags.map(t => t.guid);
+
+    // 删除标签关联
+    if (tagGuids.length > 0) {
+      await this.addressBookPeerTagRepository.delete({
+        tagGuid: In(tagGuids),
+      });
+    }
 
     // 删除标签
     await this.addressBookTagRepository.delete({
-      guid: In(guids),
+      name: In(names),
       addressBookGuid,
     });
 

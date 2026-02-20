@@ -11,11 +11,11 @@ export class AddPeerDto {
    */
   @IsString()
   @IsNotEmpty()
-  deviceId: string;
+  id: string;
 
   /**
    * 连接哈希值
-   * 用于验证连接的安全哈希值
+   * 用于验证连接的安全哈希值（个人地址簿使用）
    */
   @IsOptional()
   @IsString()
@@ -23,7 +23,7 @@ export class AddPeerDto {
 
   /**
    * 连接密码
-   * 设备的连接密码
+   * 设备的连接密码（共享地址簿使用）
    */
   @IsOptional()
   @IsString()
@@ -46,14 +46,13 @@ export class AddPeerDto {
   note?: string;
 
   /**
-   * 标签GUID列表
-   * 设备关联的标签唯一标识符数组
-   * 用于建立设备与标签的多对多关系
+   * 标签名称列表
+   * 设备关联的标签名称数组
    */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  tagGuids?: string[];
+  tags?: string[];
 }
 
 /**
@@ -61,16 +60,16 @@ export class AddPeerDto {
  */
 export class UpdatePeerDto {
   /**
-   * 设备条目唯一标识符
-   * UUID格式，用于定位要更新的设备记录
+   * 设备ID
+   * RustDesk客户端的唯一标识
    */
   @IsString()
   @IsNotEmpty()
-  guid: string;
+  id: string;
 
   /**
    * 连接哈希值
-   * 用于验证连接的安全哈希值
+   * 用于验证连接的安全哈希值（个人地址簿使用）
    */
   @IsOptional()
   @IsString()
@@ -78,7 +77,7 @@ export class UpdatePeerDto {
 
   /**
    * 连接密码
-   * 设备的连接密码
+   * 设备的连接密码（共享地址簿使用）
    */
   @IsOptional()
   @IsString()
@@ -101,25 +100,50 @@ export class UpdatePeerDto {
   note?: string;
 
   /**
-   * 标签GUID列表
-   * 设备关联的标签唯一标识符数组
+   * 标签名称列表
+   * 设备关联的标签名称数组
    * 更新时会替换原有的标签关联关系
    */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  tagGuids?: string[];
+  tags?: string[];
+
+  /**
+   * 设备登录用户名
+   * 用于同步设备信息
+   */
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  /**
+   * 设备主机名
+   * 用于同步设备信息
+   */
+  @IsOptional()
+  @IsString()
+  hostname?: string;
+
+  /**
+   * 操作系统
+   * 用于同步设备信息
+   */
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 /**
  * 删除设备的数据传输对象
+ * 设备ID数组
  */
 export class DeletePeersDto {
   /**
-   * 要删除的设备GUID列表
-   * UUID格式的设备条目唯一标识符数组
+   * 要删除的设备ID列表
+   * RustDesk设备ID数组
    */
   @IsArray()
   @IsString({ each: true })
-  guids: string[];
+  ids: string[];
 }
