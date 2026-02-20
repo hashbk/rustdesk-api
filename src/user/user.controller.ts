@@ -10,37 +10,8 @@ import { User, UserStatus } from './entities/user.entity';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get('users')
-  async getUsers(
-    @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    const pageNum = parseInt(page || '1', 10);
-    const limitNum = parseInt(limit || '20', 10);
-
-    const { users, total } = await this.userService.findAll(pageNum, limitNum);
-
-    return {
-      users: users.map(user => ({
-        id: user.id,
-        name: user.username,
-        email: user.email,
-        note: user.note,
-        status: user.status,
-        is_admin: user.isAdmin,
-        created_at: user.createdAt,
-        updated_at: user.updatedAt,
-      })),
-      total,
-      page: pageNum,
-      limit: limitNum,
-    };
-  }
+  // 注意：@Get('users') 已移至 device-group.controller.ts，用于设备组功能
+  // 管理员获取所有用户列表请使用 /api/users
 
   @Get('users/:id')
   async getUser(

@@ -31,13 +31,16 @@ export class PeerService {
    * GET /api/peers?current=1&pageSize=100&accessible=&status=1
    * 
    * 权限逻辑：
-   * 1. 用户自己的设备
-   * 2. 用户有权访问的设备组中的设备
-   * 3. 用户有权访问的其他用户的设备
+   * 1. 管理员可以看到所有设备
+   * 2. 普通用户：
+   *    - 用户自己的设备
+   *    - 用户有权访问的设备组中的设备
+   *    - 用户有权访问的其他用户的设备
    */
   async getAccessiblePeers(
     userId: number,
     query: PeerQueryDto,
+    isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
     const { current, pageSize, status } = query;
     const skip = (current - 1) * pageSize;
@@ -48,8 +51,11 @@ export class PeerService {
     // 构建查询
     const queryBuilder = this.peerRepository
       .createQueryBuilder('peer')
-      .leftJoinAndSelect('peer.deviceGroup', 'deviceGroup')
-      .where(
+      .leftJoinAndSelect('peer.deviceGroup', 'deviceGroup');
+
+    // 管理员可以看到所有设备
+    if (!isAdmin) {
+      queryBuilder.where(
         `(
           -- 用户自己的设备
           peer.userId = :userId
@@ -66,6 +72,7 @@ export class PeerService {
         )`,
         { userId },
       );
+    }
 
     // 状态过滤：status='1' 表示只获取在线设备
     if (status === '1') {

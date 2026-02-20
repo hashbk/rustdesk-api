@@ -24,37 +24,43 @@ export class DeviceGroupController {
   /**
    * 获取当前用户可访问的设备组列表
    * GET /api/device-group/accessible?current=1&pageSize=100
+   * 管理员可以看到所有设备组
    */
   @Get('device-group/accessible')
   async getAccessibleDeviceGroups(
     @CurrentUser('id') userId: number,
+    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: DeviceGroupQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleDeviceGroups(userId, query);
+    return this.deviceGroupService.getAccessibleDeviceGroups(userId, query, isAdmin);
   }
 
   /**
    * 获取当前用户可访问的设备列表
    * GET /api/peers?current=1&pageSize=100&accessible=&status=1
+   * 管理员可以看到所有设备
    */
   @Get('peers')
   async getAccessiblePeers(
     @CurrentUser('id') userId: number,
+    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: PeerQueryDto,
   ) {
-    return this.peerService.getAccessiblePeers(userId, query);
+    return this.peerService.getAccessiblePeers(userId, query, isAdmin);
   }
 
   /**
    * 获取当前用户可访问的用户列表
    * GET /api/users?current=1&pageSize=100&accessible=&status=1
+   * 管理员可以看到所有用户
    */
   @Get('users')
   async getAccessibleUsers(
     @CurrentUser('id') userId: number,
+    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: UserQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleUsers(userId, query);
+    return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
   }
 
   // ============ 管理员接口 - 设备组 ============

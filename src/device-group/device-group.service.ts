@@ -31,20 +31,37 @@ export class DeviceGroupService {
   /**
    * 获取用户可访问的设备组列表（分页）
    * GET /api/device-group/accessible
+   * 管理员可以看到所有设备组
    */
   async getAccessibleDeviceGroups(
     userId: number,
     query: DeviceGroupQueryDto,
+    isAdmin: boolean = false,
   ): Promise<{ data: { name: string }[]; total: number }> {
     const { current, pageSize } = query;
     const skip = (current - 1) * pageSize;
 
-    // 查询用户可访问的设备组
+    // 管理员可以看到所有设备组
+    if (isAdmin) {
+      const [groups, total] = await this.deviceGroupRepository.findAndCount({
+        select: ['guid', 'name'],
+        order: { name: 'ASC' },
+        skip,
+        take: pageSize,
+      });
+
+      return {
+        data: groups.map(g => ({ name: g.name })),
+        total,
+      };
+    }
+
+    // 普通用户只能看到有权限的设备组
     const queryBuilder = this.deviceGroupRepository
       .createQueryBuilder('dg')
       .innerJoin('device_group_user_permissions', 'udgp', 'udgp.deviceGroupGuid = dg.guid')
       .where('udgp.userId = :userId', { userId })
-      .select(['dg.name'])
+      .select(['dg.guid', 'dg.name'])
       .orderBy('dg.name', 'ASC')
       .skip(skip)
       .take(pageSize);
@@ -300,21 +317,38 @@ export class DeviceGroupService {
   /**
    * 获取可访问的用户列表
    * 包括：自己 + 被授权访问的用户 + 通过设备组授权间接可访问的用户
+   * 管理员可以看到所有用户
    */
   async getAccessibleUsers(
     userId: number,
     query: { current: number; pageSize: number; status: string },
+    isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
     const { current, pageSize, status } = query;
     const skip = (current - 1) * pageSize;
 
-    // 构建子查询：获取用户可访问的设备组
-    const accessibleDeviceGroups = this.deviceGroupUserPermissionRepository
-      .createQueryBuilder('udgp')
-      .select('udgp.deviceGroupGuid')
-      .where('udgp.userId = :userId');
+    // 管理员可以看到所有用户
+    if (isAdmin) {
+      const [users, total] = await this.userRepository.findAndCount({
+        where: { status: parseInt(status) || UserStatus.ACTIVE },
+        order: { username: 'ASC' },
+        skip,
+        take: pageSize,
+      });
 
-    // 构建主查询
+      return {
+        data: users.map(u => ({
+          name: u.username,
+          email: u.email || '',
+          note: u.note || '',
+          status: u.status,
+          is_admin: u.isAdmin,
+        })),
+        total,
+      };
+    }
+
+    // 普通用户只能看到有权限访问的用户
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .where('user.status = :status', { status: parseInt(status) || UserStatus.ACTIVE })
