@@ -6,7 +6,7 @@ import { Sysinfo } from './entities/sysinfo.entity';
 import { SysinfoDto } from './dto/sysinfo.dto';
 import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/entities';
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
-import { AccessiblePeer, PeerInfo } from '../device-group/entities/accessible-peer.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Injectable()
 export class SysinfoService {
@@ -23,8 +23,8 @@ export class SysinfoService {
     private addressBookTagRepository: Repository<AddressBookTag>,
     @InjectRepository(DeviceGroup)
     private deviceGroupRepository: Repository<DeviceGroup>,
-    @InjectRepository(AccessiblePeer)
-    private accessiblePeerRepository: Repository<AccessiblePeer>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
   ) {}
 
   async createSysinfo(sysinfoDto: SysinfoDto): Promise<Sysinfo> {
@@ -203,19 +203,19 @@ export class SysinfoService {
       return;
     }
 
-    // 为设备组中的所有用户创建可访问设备记录
-    // 这里简化处理，只创建一条记录，实际应该根据设备组的用户列表创建
-    const peerInfo: PeerInfo = {
-      username: sysinfo.presetUsername || sysinfo.username || '',
-      hostname: sysinfo.hostname || '',
-      device_name: sysinfo.hostname || '',
-      os: sysinfo.os || '',
-    };
+    // 查找设备记录
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: sysinfo.uuid },
+    });
 
-    // 检查是否已存在
-    // 由于 AccessiblePeer 需要 userId，这里暂时跳过
-    // 实际使用时，应该由管理员手动分配设备给用户
-    this.logger.log(`设备 ${sysinfo.uuid} 已关联到设备组 ${deviceGroup.name}`);
+    if (peer) {
+      // 更新设备的设备组
+      peer.deviceGroupGuid = deviceGroup.guid;
+      await this.peerRepository.save(peer);
+      this.logger.log(`设备 ${sysinfo.uuid} 已关联到设备组 ${deviceGroup.name}`);
+    } else {
+      this.logger.warn(`设备 ${sysinfo.uuid} 不存在，无法关联到设备组`);
+    }
   }
 
   async findAll(): Promise<Sysinfo[]> {

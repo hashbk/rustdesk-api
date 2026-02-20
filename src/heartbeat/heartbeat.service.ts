@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { Peer } from './entities/peer.entity';
-import { AccessiblePeer } from '../device-group/entities/accessible-peer.entity';
 
 @Injectable()
 export class HeartbeatService {
@@ -12,8 +11,6 @@ export class HeartbeatService {
   constructor(
     @InjectRepository(Peer)
     private peerRepository: Repository<Peer>,
-    @InjectRepository(AccessiblePeer)
-    private accessiblePeerRepository: Repository<AccessiblePeer>,
   ) {}
 
   async handleHeartbeat(data: HeartbeatDto) {
@@ -41,14 +38,6 @@ export class HeartbeatService {
       });
       await this.peerRepository.save(peer);
     }
-
-    // 同步更新 AccessiblePeer 表中的设备状态
-    await this.accessiblePeerRepository
-      .createQueryBuilder()
-      .update(AccessiblePeer)
-      .set({ id: data.id })
-      .where('uuid = :peerUuid', { peerUuid: data.uuid })
-      .execute();
 
     return {
       code: 200,

@@ -1,4 +1,5 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { DeviceGroup } from '../../device-group/entities/device-group.entity';
 
 @Entity('peers')
 export class Peer {
@@ -11,6 +12,22 @@ export class Peer {
   @Column({ nullable: true })
   @Index()
   userId: number;
+
+  /**
+   * 所属设备组GUID
+   * 关联到 device_groups 表的 guid 字段
+   */
+  @Column({ nullable: true })
+  @Index()
+  deviceGroupGuid: string;
+
+  /**
+   * 关联的设备组实体
+   * 多对一关系，关联到 DeviceGroup
+   */
+  @ManyToOne(() => DeviceGroup, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'deviceGroupGuid' })
+  deviceGroup: DeviceGroup;
 
   @Column()
   ver: number;

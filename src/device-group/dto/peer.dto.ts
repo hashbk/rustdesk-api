@@ -1,6 +1,10 @@
 import { IsString, IsOptional, IsNumber, Min, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
+/**
+ * 设备查询DTO
+ * 用于获取可访问设备列表
+ */
 export class PeerQueryDto {
   @IsNumber()
   @Min(1)
@@ -21,69 +25,49 @@ export class PeerQueryDto {
   status: string; // '1' 表示只获取在线设备
 }
 
-export class CreatePeerDto {
-  @IsString()
-  id: string; // 设备ID
-
-  @IsOptional()
-  @IsString()
-  username?: string; // 系统用户名
-
-  @IsOptional()
-  @IsString()
-  hostname?: string; // 主机名
-
-  @IsOptional()
-  @IsString()
-  deviceName?: string; // 设备名称
-
-  @IsOptional()
-  @IsString()
-  os?: string; // 操作系统
-
-  @IsOptional()
-  @IsString()
-  ownerUsername?: string; // 所有者用户名
-
-  @IsOptional()
-  @IsString()
-  ownerName?: string; // 所有者显示名称
-
-  @IsOptional()
-  @IsString()
-  deviceGroupName?: string; // 设备组名称
-
-  @IsOptional()
-  @IsString()
-  note?: string; // 备注
-}
-
+/**
+ * 更新设备DTO
+ */
 export class UpdatePeerDto {
   @IsOptional()
   @IsString()
-  username?: string;
-
-  @IsOptional()
-  @IsString()
-  hostname?: string;
-
-  @IsOptional()
-  @IsString()
-  deviceName?: string;
-
-  @IsOptional()
-  @IsString()
-  os?: string;
-
-  @IsOptional()
-  @IsString()
-  deviceGroupName?: string;
+  deviceGroupGuid?: string; // 设备组GUID
 
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+/**
+ * 设备信息DTO
+ */
+export class PeerInfoDto {
+  username: string;    // 系统用户名
+  os: string;          // 操作系统
+  device_name: string; // 设备名称
+}
+
+/**
+ * 设备响应DTO
+ */
+export class PeerResponseDto {
+  id: string;                      // RustDesk 设备 ID
+  info: PeerInfoDto;               // 设备信息
+  status: number;                  // 在线状态 (1=在线)
+  user: string;                    // 设备所有者用户名
+  user_name: string;               // 设备所有者显示名（用于过滤）
+  device_group_name?: string;      // 所属设备组名称（用于过滤）
+  note: string;                    // 备注
+}
+
+/**
+ * 批量设置设备设备组DTO
+ */
+export class SetPeerDeviceGroupDto {
+  @IsString({ each: true })
+  peerIds: string[]; // 设备ID列表
 
   @IsOptional()
-  @IsNumber()
-  status?: number;
+  @IsString()
+  deviceGroupGuid?: string; // 设备组GUID，为空则清除设备组
 }

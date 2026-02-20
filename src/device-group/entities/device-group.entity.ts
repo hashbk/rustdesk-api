@@ -1,32 +1,50 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import { DeviceGroupUserPermission } from './device-group-user-permission.entity';
 
+/**
+ * 设备组实体
+ * 管理设备分组信息
+ */
 @Entity('device_groups')
 export class DeviceGroup {
-  @PrimaryGeneratedColumn('increment')
-  id: number;
+  /**
+   * 设备组唯一标识符
+   * UUID格式，用于唯一标识一个设备组
+   */
+  @PrimaryColumn()
+  guid: string;
 
-  @Column()
+  /**
+   * 设备组名称
+   * 用于显示和区分不同的设备组
+   */
+  @Column({ unique: true })
+  @Index()
   name: string;
 
-  @Column({ nullable: true })
+  /**
+   * 备注
+   * 设备组的详细说明信息
+   */
+  @Column({ type: 'text', nullable: true })
   note: string;
 
-  @Column({ nullable: true })
-  owner: string; // 创建者用户名
+  /**
+   * 设备组的用户权限列表
+   * 一对多关系，关联到 DeviceGroupUserPermission
+   */
+  @OneToMany(() => DeviceGroupUserPermission, permission => permission.deviceGroup, { cascade: true })
+  userPermissions: DeviceGroupUserPermission[];
 
-  // 关联的用户（可访问此设备组的用户）
-  @ManyToMany(() => User)
-  @JoinTable({
-    name: 'device_group_users',
-    joinColumn: { name: 'deviceGroupId', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
-  })
-  users: User[];
-
+  /**
+   * 创建时间
+   */
   @CreateDateColumn()
   createdAt: Date;
 
+  /**
+   * 更新时间
+   */
   @UpdateDateColumn()
   updatedAt: Date;
 }

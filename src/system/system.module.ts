@@ -5,10 +5,10 @@ import { SysinfoService } from './sysinfo.service';
 import { Sysinfo } from './entities/sysinfo.entity';
 import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/entities';
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
-import { AccessiblePeer } from '../device-group/entities/accessible-peer.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sysinfo, AddressBook, AddressBookPeer, AddressBookTag, DeviceGroup, AccessiblePeer])],
+  imports: [TypeOrmModule.forFeature([Sysinfo, AddressBook, AddressBookPeer, AddressBookTag, DeviceGroup, Peer])],
   controllers: [SystemController],
   providers: [SysinfoService],
   exports: [SysinfoService],

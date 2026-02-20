@@ -1,18 +1,36 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { DeviceGroup } from './entities/device-group.entity';
-import { DeviceGroupQueryDto, CreateDeviceGroupDto, UpdateDeviceGroupDto } from './dto/device-group.dto';
+import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
+import { UserUserPermission } from './entities/user-user-permission.entity';
+import { User, UserStatus } from '../user/entities/user.entity';
+import { 
+  DeviceGroupQueryDto, 
+  CreateDeviceGroupDto, 
+  UpdateDeviceGroupDto,
+  AddDeviceGroupUserPermissionDto,
+  SetDeviceGroupUsersDto,
+} from './dto/device-group.dto';
+import { AddUserUserPermissionDto, SetUserPermissionsDto } from './dto/user.dto';
 
 @Injectable()
 export class DeviceGroupService {
   constructor(
     @InjectRepository(DeviceGroup)
     private deviceGroupRepository: Repository<DeviceGroup>,
+    @InjectRepository(DeviceGroupUserPermission)
+    private deviceGroupUserPermissionRepository: Repository<DeviceGroupUserPermission>,
+    @InjectRepository(UserUserPermission)
+    private userUserPermissionRepository: Repository<UserUserPermission>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   /**
    * 获取用户可访问的设备组列表（分页）
+   * GET /api/device-group/accessible
    */
   async getAccessibleDeviceGroups(
     userId: number,
@@ -22,14 +40,16 @@ export class DeviceGroupService {
     const skip = (current - 1) * pageSize;
 
     // 查询用户可访问的设备组
-    // 这里简化处理：返回所有设备组
-    // 实际项目中应该根据用户权限过滤
-    const [groups, total] = await this.deviceGroupRepository.findAndCount({
-      select: ['name'],
-      order: { name: 'ASC' },
-      skip,
-      take: pageSize,
-    });
+    const queryBuilder = this.deviceGroupRepository
+      .createQueryBuilder('dg')
+      .innerJoin('device_group_user_permissions', 'udgp', 'udgp.deviceGroupGuid = dg.guid')
+      .where('udgp.userId = :userId', { userId })
+      .select(['dg.name'])
+      .orderBy('dg.name', 'ASC')
+      .skip(skip)
+      .take(pageSize);
+
+    const [groups, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: groups.map(g => ({ name: g.name })),
@@ -42,7 +62,7 @@ export class DeviceGroupService {
    */
   async findAll(page: number = 1, limit: number = 20): Promise<{ groups: DeviceGroup[]; total: number }> {
     const [groups, total] = await this.deviceGroupRepository.findAndCount({
-      order: { id: 'ASC' },
+      order: { name: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -51,10 +71,10 @@ export class DeviceGroupService {
   }
 
   /**
-   * 根据 ID 获取设备组
+   * 根据 GUID 获取设备组
    */
-  async findById(id: number): Promise<DeviceGroup | null> {
-    return this.deviceGroupRepository.findOne({ where: { id } });
+  async findByGuid(guid: string): Promise<DeviceGroup | null> {
+    return this.deviceGroupRepository.findOne({ where: { guid } });
   }
 
   /**
@@ -67,7 +87,7 @@ export class DeviceGroupService {
   /**
    * 创建设备组
    */
-  async create(createDto: CreateDeviceGroupDto, owner?: string): Promise<DeviceGroup> {
+  async create(createDto: CreateDeviceGroupDto): Promise<DeviceGroup> {
     // 检查名称是否已存在
     const existing = await this.findByName(createDto.name);
     if (existing) {
@@ -75,8 +95,8 @@ export class DeviceGroupService {
     }
 
     const group = this.deviceGroupRepository.create({
+      guid: uuidv4(),
       ...createDto,
-      owner,
     });
 
     return this.deviceGroupRepository.save(group);
@@ -85,8 +105,8 @@ export class DeviceGroupService {
   /**
    * 更新设备组
    */
-  async update(id: number, updateDto: UpdateDeviceGroupDto): Promise<DeviceGroup> {
-    const group = await this.findById(id);
+  async update(guid: string, updateDto: UpdateDeviceGroupDto): Promise<DeviceGroup> {
+    const group = await this.findByGuid(guid);
     if (!group) {
       throw new NotFoundException('设备组不存在');
     }
@@ -106,12 +126,227 @@ export class DeviceGroupService {
   /**
    * 删除设备组
    */
-  async delete(id: number): Promise<void> {
-    const group = await this.findById(id);
+  async delete(guid: string): Promise<void> {
+    const group = await this.findByGuid(guid);
     if (!group) {
       throw new NotFoundException('设备组不存在');
     }
 
     await this.deviceGroupRepository.remove(group);
+  }
+
+  // ============ 设备组用户权限管理 ============
+
+  /**
+   * 获取设备组的用户列表
+   */
+  async getDeviceGroupUsers(guid: string): Promise<{ userId: number; username: string }[]> {
+    const permissions = await this.deviceGroupUserPermissionRepository.find({
+      where: { deviceGroupGuid: guid },
+      relations: ['user'],
+    });
+
+    return permissions.map(p => ({
+      userId: p.userId,
+      username: p.user?.username || '',
+    }));
+  }
+
+  /**
+   * 添加用户设备组权限
+   */
+  async addUserPermission(dto: AddDeviceGroupUserPermissionDto): Promise<void> {
+    // 检查设备组是否存在
+    const group = await this.findByGuid(dto.deviceGroupGuid);
+    if (!group) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    // 检查用户是否存在
+    const user = await this.userRepository.findOne({ where: { id: dto.userId } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 检查权限是否已存在
+    const existing = await this.deviceGroupUserPermissionRepository.findOne({
+      where: { deviceGroupGuid: dto.deviceGroupGuid, userId: dto.userId },
+    });
+    if (existing) {
+      return; // 权限已存在，无需重复添加
+    }
+
+    const permission = this.deviceGroupUserPermissionRepository.create(dto);
+    await this.deviceGroupUserPermissionRepository.save(permission);
+  }
+
+  /**
+   * 移除用户设备组权限
+   */
+  async removeUserPermission(deviceGroupGuid: string, userId: number): Promise<void> {
+    await this.deviceGroupUserPermissionRepository.delete({
+      deviceGroupGuid,
+      userId,
+    });
+  }
+
+  /**
+   * 批量设置设备组的用户权限
+   */
+  async setDeviceGroupUsers(dto: SetDeviceGroupUsersDto): Promise<void> {
+    // 检查设备组是否存在
+    const group = await this.findByGuid(dto.deviceGroupGuid);
+    if (!group) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    // 删除现有关联
+    await this.deviceGroupUserPermissionRepository.delete({
+      deviceGroupGuid: dto.deviceGroupGuid,
+    });
+
+    // 添加新关联
+    if (dto.userIds.length > 0) {
+      const permissions = dto.userIds.map(userId => ({
+        deviceGroupGuid: dto.deviceGroupGuid,
+        userId,
+      }));
+      await this.deviceGroupUserPermissionRepository.insert(permissions);
+    }
+  }
+
+  // ============ 用户间权限管理 ============
+
+  /**
+   * 获取用户有权访问的其他用户列表
+   */
+  async getAccessibleTargetUsers(userId: number): Promise<number[]> {
+    const permissions = await this.userUserPermissionRepository.find({
+      where: { userId },
+      select: ['targetUserId'],
+    });
+    return permissions.map(p => p.targetUserId);
+  }
+
+  /**
+   * 添加用户间权限
+   */
+  async addUserUserPermission(dto: AddUserUserPermissionDto): Promise<void> {
+    // 检查用户是否存在
+    const [user, targetUser] = await Promise.all([
+      this.userRepository.findOne({ where: { id: dto.userId } }),
+      this.userRepository.findOne({ where: { id: dto.targetUserId } }),
+    ]);
+    if (!user || !targetUser) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 不能给自己授权
+    if (dto.userId === dto.targetUserId) {
+      throw new BadRequestException('不能给自己授权');
+    }
+
+    // 检查权限是否已存在
+    const existing = await this.userUserPermissionRepository.findOne({
+      where: { userId: dto.userId, targetUserId: dto.targetUserId },
+    });
+    if (existing) {
+      return; // 权限已存在
+    }
+
+    const permission = this.userUserPermissionRepository.create(dto);
+    await this.userUserPermissionRepository.save(permission);
+  }
+
+  /**
+   * 移除用户间权限
+   */
+  async removeUserUserPermission(userId: number, targetUserId: number): Promise<void> {
+    await this.userUserPermissionRepository.delete({
+      userId,
+      targetUserId,
+    });
+  }
+
+  /**
+   * 批量设置用户权限
+   */
+  async setUserPermissions(dto: SetUserPermissionsDto): Promise<void> {
+    // 检查目标用户是否存在
+    const targetUser = await this.userRepository.findOne({ where: { id: dto.targetUserId } });
+    if (!targetUser) {
+      throw new NotFoundException('目标用户不存在');
+    }
+
+    // 删除现有关联
+    await this.userUserPermissionRepository.delete({
+      targetUserId: dto.targetUserId,
+    });
+
+    // 添加新关联
+    if (dto.userIds.length > 0) {
+      const permissions = dto.userIds
+        .filter(userId => userId !== dto.targetUserId) // 排除自己
+        .map(userId => ({
+          userId,
+          targetUserId: dto.targetUserId,
+        }));
+      if (permissions.length > 0) {
+        await this.userUserPermissionRepository.insert(permissions);
+      }
+    }
+  }
+
+  /**
+   * 获取可访问的用户列表
+   * 包括：自己 + 被授权访问的用户 + 通过设备组授权间接可访问的用户
+   */
+  async getAccessibleUsers(
+    userId: number,
+    query: { current: number; pageSize: number; status: string },
+  ): Promise<{ data: any[]; total: number }> {
+    const { current, pageSize, status } = query;
+    const skip = (current - 1) * pageSize;
+
+    // 构建子查询：获取用户可访问的设备组
+    const accessibleDeviceGroups = this.deviceGroupUserPermissionRepository
+      .createQueryBuilder('udgp')
+      .select('udgp.deviceGroupGuid')
+      .where('udgp.userId = :userId');
+
+    // 构建主查询
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.status = :status', { status: parseInt(status) || UserStatus.ACTIVE })
+      .andWhere(
+        `(user.id = :userId 
+          OR EXISTS (
+            SELECT 1 FROM user_user_permissions uup 
+            WHERE uup.userId = :userId AND uup.targetUserId = user.id
+          )
+          OR EXISTS (
+            SELECT 1 FROM peers p 
+            INNER JOIN device_group_user_permissions udgp ON p.deviceGroupGuid = udgp.deviceGroupGuid
+            WHERE udgp.userId = :userId AND p.userId = user.id
+          )
+        )`,
+        { userId },
+      )
+      .orderBy('user.username', 'ASC')
+      .skip(skip)
+      .take(pageSize);
+
+    const [users, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: users.map(u => ({
+        name: u.username,
+        email: u.email || '',
+        note: u.note || '',
+        status: u.status,
+        is_admin: u.isAdmin,
+      })),
+      total,
+    };
   }
 }
