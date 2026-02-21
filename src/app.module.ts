@@ -29,7 +29,7 @@ import { OidcAuthState } from './oidc/entities/oidc-auth-state.entity';
 import { DeviceGroup } from './device-group/entities/device-group.entity';
 import { DeviceGroupUserPermission } from './device-group/entities/device-group-user-permission.entity';
 import { UserUserPermission } from './device-group/entities/user-user-permission.entity';
-import { GlobalJwtAuthGuard } from './auth/providers/jwt-auth-guard.provider';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -55,7 +55,7 @@ import { GlobalJwtAuthGuard } from './auth/providers/jwt-auth-guard.provider';
     AppService,
     {
       provide: APP_GUARD,
-      useClass: GlobalJwtAuthGuard,
+      useClass: JwtAuthGuard,
     },
   ],
 })
