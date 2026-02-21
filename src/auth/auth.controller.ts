@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
@@ -44,15 +44,5 @@ export class AuthController {
     @Body() currentUserDto: CurrentUserDto,
   ) {
     return this.authService.getCurrentUser(userId, currentUserDto);
-  }
-
-  @Public()
-  @Get('login-options')
-  async getLoginOptions() {
-    // 返回支持的登录方式
-    return [
-      'oidc/google',
-      'oidc/github',
-    ];
   }
 }
