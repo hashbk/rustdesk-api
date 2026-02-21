@@ -10,7 +10,7 @@ import { UserModule } from './modules/user/user.module';
 import { DeviceGroupModule } from './modules/device-group/device-group.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/oidc/oidc.module';
-import { SystemModule } from './modules/system/system.module';
+import { SysinfoModule } from './modules/sysinfo/sysinfo.module';
 import { AdminModule } from './admin/admin.module';
 import { DatabaseModule } from './database/database.module';
 import { Sysinfo, Peer } from './common/entities';
@@ -48,7 +48,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     DeviceGroupModule,
     AuthModule,
     OidcModule,
-    SystemModule,
+    SysinfoModule,
     AdminModule,
   ],
   controllers: [AppController],

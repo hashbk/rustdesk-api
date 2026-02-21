@@ -1,16 +1,16 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { SystemService } from './system.service';
+import { SysinfoService } from './sysinfo.service';
 import { SysinfoDto } from './dto/sysinfo.dto';
 import { Public } from '../auth/decorators/public.decorator';
 
 @Controller()
-export class SystemController {
-  constructor(private readonly systemService: SystemService) {}
+export class SysinfoController {
+  constructor(private readonly sysinfoService: SysinfoService) {}
 
   @Public()
   @Post('sysinfo')
   async submitSysInfo(@Body() sysinfoDto: SysinfoDto) {
-    const result = await this.systemService.createSysinfo(sysinfoDto);
+    const result = await this.sysinfoService.createSysinfo(sysinfoDto);
     return {
       message: '提交系统信息成功',
       success: true,

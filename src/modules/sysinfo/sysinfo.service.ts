@@ -8,8 +8,8 @@ import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/en
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
 
 @Injectable()
-export class SystemService {
-  private readonly logger = new Logger(SystemService.name);
+export class SysinfoService {
+  private readonly logger = new Logger(SysinfoService.name);
 
   constructor(
     @InjectRepository(Sysinfo)

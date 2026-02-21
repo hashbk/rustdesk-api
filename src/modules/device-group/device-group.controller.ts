@@ -5,13 +5,18 @@ import {
   DeviceGroupQueryDto, 
   CreateDeviceGroupDto, 
   UpdateDeviceGroupDto,
-  AddDeviceGroupUserPermissionDto,
   SetDeviceGroupUsersDto,
 } from './dto/device-group.dto';
-import { PeerQueryDto, UpdatePeerDto, SetPeerDeviceGroupDto } from './dto/peer.dto';
-import { UserQueryDto, AddUserUserPermissionDto, SetUserPermissionsDto } from './dto/user.dto';
+import { PeerQueryDto } from './dto/peer.dto';
+import { UserQueryDto } from './dto/user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+/**
+ * 设备组控制器
+ * 管理设备组相关的客户端接口
+ * 
+ * 注意：管理员接口已移至 admin 模块统一管理
+ */
 @Controller()
 export class DeviceGroupController {
   constructor(
@@ -63,7 +68,8 @@ export class DeviceGroupController {
     return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
   }
 
-  // ============ 管理员接口 - 设备组 ============
+  // ============ 设备组管理接口（需要管理员权限）============
+  // 注意：这些接口保留是为了向后兼容，新代码应使用 /api/admin/device-groups
 
   /**
    * 获取所有设备组
@@ -207,190 +213,6 @@ export class DeviceGroupController {
       deviceGroupGuid: guid,
       userIds: body.userIds,
     });
-    return { message: '设置成功' };
-  }
-
-  // ============ 管理员接口 - 设备 ============
-
-  /**
-   * 获取所有设备
-   * GET /api/admin/peers
-   */
-  @Get('admin/peers')
-  async getAllPeers(
-    @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    const pageNum = parseInt(page || '1', 10);
-    const limitNum = parseInt(limit || '20', 10);
-
-    const { peers, total } = await this.peerService.findAll(pageNum, limitNum);
-
-    // 计算一分钟前的时间
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-
-    return {
-      peers: peers.map(p => ({
-        id: p.id,
-        uuid: p.uuid,
-        user_id: p.userId,
-        device_group_guid: p.deviceGroupGuid,
-        device_group_name: p.deviceGroup?.name || '',
-        ver: p.ver,
-        modified_at: p.modifiedAt,
-        status: p.updatedAt > oneMinuteAgo ? 1 : 0,
-        created_at: p.createdAt,
-        updated_at: p.updatedAt,
-      })),
-      total,
-      page: pageNum,
-      limit: limitNum,
-    };
-  }
-
-  /**
-   * 更新设备信息
-   * PUT /api/admin/peers/:uuid
-   */
-  @Put('admin/peers/:uuid')
-  async updatePeer(
-    @Param('uuid') uuid: string,
-    @Body() updateDto: UpdatePeerDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.peerService.updatePeerInfo(uuid, updateDto);
-    return { message: '更新成功' };
-  }
-
-  /**
-   * 删除设备（解除用户绑定）
-   * DELETE /api/admin/peers/:uuid
-   */
-  @Delete('admin/peers/:uuid')
-  async deletePeer(
-    @Param('uuid') uuid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.peerService.deletePeer(uuid);
-    return { message: '删除成功' };
-  }
-
-  /**
-   * 批量设置设备的设备组
-   * POST /api/admin/peers/device-group
-   */
-  @Post('admin/peers/device-group')
-  async setPeerDeviceGroup(
-    @Body() dto: SetPeerDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.peerService.setPeerDeviceGroup(dto);
-    return { message: '设置成功' };
-  }
-
-  // ============ 管理员接口 - 用户权限 ============
-
-  /**
-   * 添加用户设备组权限
-   * POST /api/admin/device-group-permissions
-   */
-  @Post('admin/device-group-permissions')
-  async addDeviceGroupUserPermission(
-    @Body() dto: AddDeviceGroupUserPermissionDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.deviceGroupService.addUserPermission(dto);
-    return { message: '添加成功' };
-  }
-
-  /**
-   * 删除用户设备组权限
-   * DELETE /api/admin/device-group-permissions/:deviceGroupGuid/:userId
-   */
-  @Delete('admin/device-group-permissions/:deviceGroupGuid/:userId')
-  async removeDeviceGroupUserPermission(
-    @Param('deviceGroupGuid') deviceGroupGuid: string,
-    @Param('userId', ParseIntPipe) userId: number,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userId);
-    return { message: '删除成功' };
-  }
-
-  /**
-   * 添加用户间权限
-   * POST /api/admin/user-permissions
-   */
-  @Post('admin/user-permissions')
-  async addUserUserPermission(
-    @Body() dto: AddUserUserPermissionDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.deviceGroupService.addUserUserPermission(dto);
-    return { message: '添加成功' };
-  }
-
-  /**
-   * 删除用户间权限
-   * DELETE /api/admin/user-permissions/:userId/:targetUserId
-   */
-  @Delete('admin/user-permissions/:userId/:targetUserId')
-  async removeUserUserPermission(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('targetUserId', ParseIntPipe) targetUserId: number,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.deviceGroupService.removeUserUserPermission(userId, targetUserId);
-    return { message: '删除成功' };
-  }
-
-  /**
-   * 批量设置用户权限
-   * POST /api/admin/user-permissions/batch
-   */
-  @Post('admin/user-permissions/batch')
-  async setUserPermissions(
-    @Body() dto: SetUserPermissionsDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
-    await this.deviceGroupService.setUserPermissions(dto);
     return { message: '设置成功' };
   }
 }
