@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
@@ -54,37 +54,5 @@ export class AuthController {
       'oidc/google',
       'oidc/github',
     ];
-  }
-
-  // ==================== TFA 测试辅助接口 ====================
-
-  /**
-   * 为用户生成 TFA Secret
-   * GET /api/tfa/setup/:userId
-   */
-  @Public()
-  @Get('tfa/setup/:userId')
-  async setupTfa(@Param('userId') userId: string) {
-    return this.authService.generateTfaSecret(parseInt(userId, 10));
-  }
-
-  /**
-   * 验证 TFA 验证码
-   * GET /api/tfa/verify?secret=xxx&code=123456
-   */
-  @Public()
-  @Get('tfa/verify')
-  async verifyTfa(@Query('secret') secret: string, @Query('code') code: string) {
-    return this.authService.testTfaCode(secret, code);
-  }
-
-  /**
-   * 禁用用户的 TFA
-   * GET /api/tfa/disable/:userId
-   */
-  @Public()
-  @Get('tfa/disable/:userId')
-  async disableTfa(@Param('userId') userId: string) {
-    return this.authService.disableTfa(parseInt(userId, 10));
   }
 }

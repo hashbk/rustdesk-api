@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsNotEmpty, IsArray } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
 
 /**
  * 添加标签的数据传输对象
@@ -64,18 +64,4 @@ export class RenameTagDto {
   @IsString()
   @IsNotEmpty()
   new: string;
-}
-
-/**
- * 删除标签的数据传输对象
- * 标签名称数组
- */
-export class DeleteTagsDto {
-  /**
-   * 要删除的标签名称列表
-   * 删除标签时会同时解除该标签与所有设备的关联关系
-   */
-  @IsArray()
-  @IsString({ each: true })
-  names: string[];
 }

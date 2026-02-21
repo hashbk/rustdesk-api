@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty, IsArray, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsArray, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -172,18 +172,4 @@ export class UpdatePeerDto {
   @IsOptional()
   @IsString()
   platform?: string;
-}
-
-/**
- * 删除设备的数据传输对象
- * 设备ID数组
- */
-export class DeletePeersDto {
-  /**
-   * 要删除的设备ID列表
-   * RustDesk设备ID数组
-   */
-  @IsArray()
-  @IsString({ each: true })
-  ids: string[];
 }

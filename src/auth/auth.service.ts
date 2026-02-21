@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticator } from 'otplib';
@@ -47,7 +47,7 @@ export class AuthService {
     @InjectRepository(Peer)
     private peerRepository: Repository<Peer>,
     private jwtService: JwtService,
-    private dataSource: DataSource,
+    
   ) {}
 
   /**
@@ -323,50 +323,6 @@ export class AuthService {
     }
   }
 
-  // ==================== 测试辅助方法 ====================
-
-  /**
-   * 为用户生成 TFA Secret（测试用）
-   */
-  async generateTfaSecret(userId: number): Promise<{ secret: string; otpauthUrl: string }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new UnauthorizedException('用户不存在');
-    }
-
-    const secret = authenticator.generateSecret();
-    const serviceName = 'RustDesk-API';
-    const otpauthUrl = authenticator.keyuri(user.username, serviceName, secret);
-
-    // 保存到用户记录
-    user.tfaSecret = secret;
-    await this.userRepository.save(user);
-
-    return { secret, otpauthUrl };
-  }
-
-  /**
-   * 验证 TFA 验证码（测试用）
-   */
-  async testTfaCode(secret: string, code: string): Promise<{ valid: boolean }> {
-    const valid = this.verifyTfaCode(secret, code);
-    return { valid };
-  }
-
-  /**
-   * 禁用用户的 TFA（测试用）
-   */
-  async disableTfa(userId: number): Promise<{ message: string }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new UnauthorizedException('用户不存在');
-    }
-
-    user.tfaSecret = null as any;
-    await this.userRepository.save(user);
-
-    return { message: '双因素认证已禁用' };
-  }
 
   /**
    * 获取当前用户信息

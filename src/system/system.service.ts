@@ -9,8 +9,8 @@ import { DeviceGroup } from '../device-group/entities/device-group.entity';
 import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Injectable()
-export class SysinfoService {
-  private readonly logger = new Logger(SysinfoService.name);
+export class SystemService {
+  private readonly logger = new Logger(SystemService.name);
 
   constructor(
     @InjectRepository(Sysinfo)
