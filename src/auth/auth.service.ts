@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { authenticator } from 'otplib';
 import { User, UserStatus, UserInfo } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
 import { Peer } from '../heartbeat/entities/peer.entity';
@@ -18,7 +19,7 @@ export interface JwtPayload {
 }
 
 export interface LoginResponse {
-  access_token: string;
+  access_token?: string;
   type: string;
   tfa_type?: string;
   secret?: string;
@@ -93,7 +94,7 @@ export class AuthService {
 
     // 根据登录类型处理
     if (type === 'sms_code' || type === 'email_code') {
-      // 验证码登录
+      // 验证码登录（也处理 TFA 验证）
       return this.handleCodeLogin(loginDto);
     }
 
@@ -140,13 +141,25 @@ export class AuthService {
     if (user.tfaSecret) {
       if (!tfaCode) {
         return {
-          access_token: '',
-          type: 'tfa_check',
-          tfa_type: 'totp',
+          type: 'email_check',
+          tfa_type: 'tfa_check',
           secret: user.tfaSecret,
+          user: {
+            name: user.username,
+            email: user.email || undefined,
+            note: user.note || undefined,
+            status: user.status,
+            info: user.getUserInfo(),
+            is_admin: user.isAdmin,
+            third_auth_type: user.thirdAuthType || undefined,
+          },
         };
       }
-      // TODO: 验证 TFA 代码
+      // 验证 TFA 代码
+      const isValidTfa = this.verifyTfaCode(user.tfaSecret, tfaCode);
+      if (!isValidTfa) {
+        throw new UnauthorizedException('双因素认证验证码错误');
+      }
     }
 
     // 创建设备记录
@@ -173,10 +186,15 @@ export class AuthService {
   }
 
   /**
-   * 验证码登录（短信/邮箱）
+   * 验证码登录（短信/邮箱/TFA）
    */
   private async handleCodeLogin(loginDto: LoginDto): Promise<LoginResponse> {
-    const { username, verificationCode, type, id, uuid, deviceInfo } = loginDto;
+    const { username, verificationCode, tfaCode, secret, type, id, uuid, deviceInfo } = loginDto;
+
+    // 如果包含 tfaCode 和 secret，则进行 TFA 验证
+    if (tfaCode && secret) {
+      return this.handleTfaLogin(loginDto);
+    }
 
     if (!username || !verificationCode) {
       throw new BadRequestException('用户名和验证码不能为空');
@@ -188,7 +206,7 @@ export class AuthService {
 
     // 查找或创建用户
     let user = await this.userRepository.findOne({
-      where: type === 'sms_code' 
+      where: type === 'sms_code'
         ? { username } // 假设 username 是手机号
         : { email: username }, // 假设 username 是邮箱
     });
@@ -238,16 +256,33 @@ export class AuthService {
       throw new BadRequestException('双因素认证参数不完整');
     }
 
-    // TODO: 实现 TFA 验证逻辑
-    // 使用 otplib 或类似库验证 TOTP 代码
+    // 验证 TFA 代码
+    const isValidTfa = this.verifyTfaCode(secret, tfaCode);
+    if (!isValidTfa) {
+      throw new UnauthorizedException('双因素认证验证码错误');
+    }
 
     // 查找用户
-    const user = await this.userRepository.findOne({
-      where: [{ username }, { email: username }],
-    });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.username = :username OR user.email = :email', { username, email: username })
+      .addSelect('user.tfaSecret')
+      .addSelect('user.info')
+      .addSelect('user.thirdAuthType')
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('用户不存在');
+    }
+
+    // 验证 secret 是否与用户的 tfaSecret 匹配
+    if (user.tfaSecret !== secret) {
+      throw new UnauthorizedException('双因素认证参数无效');
+    }
+
+    // 检查用户状态
+    if (user.status === UserStatus.DISABLED) {
+      throw new UnauthorizedException('账户已被禁用');
     }
 
     // 创建设备记录
@@ -271,6 +306,66 @@ export class AuthService {
         third_auth_type: user.thirdAuthType || undefined,
       },
     };
+  }
+
+  /**
+   * 验证 TFA 验证码
+   */
+  private verifyTfaCode(secret: string, code: string): boolean {
+    try {
+      return authenticator.verify({
+        secret,
+        token: code,
+      });
+    } catch (error) {
+      this.logger.error('TFA 验证失败', error);
+      return false;
+    }
+  }
+
+  // ==================== 测试辅助方法 ====================
+
+  /**
+   * 为用户生成 TFA Secret（测试用）
+   */
+  async generateTfaSecret(userId: number): Promise<{ secret: string; otpauthUrl: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    const secret = authenticator.generateSecret();
+    const serviceName = 'RustDesk-API';
+    const otpauthUrl = authenticator.keyuri(user.username, serviceName, secret);
+
+    // 保存到用户记录
+    user.tfaSecret = secret;
+    await this.userRepository.save(user);
+
+    return { secret, otpauthUrl };
+  }
+
+  /**
+   * 验证 TFA 验证码（测试用）
+   */
+  async testTfaCode(secret: string, code: string): Promise<{ valid: boolean }> {
+    const valid = this.verifyTfaCode(secret, code);
+    return { valid };
+  }
+
+  /**
+   * 禁用用户的 TFA（测试用）
+   */
+  async disableTfa(userId: number): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    user.tfaSecret = null as any;
+    await this.userRepository.save(user);
+
+    return { message: '双因素认证已禁用' };
   }
 
   /**
@@ -348,7 +443,7 @@ export class AuthService {
   async validateToken(token: string): Promise<JwtPayload | null> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
-      
+
       // 检查 Token 是否被撤销
       const tokenRecord = await this.tokenRepository.findOne({
         where: { token, isRevoked: false },

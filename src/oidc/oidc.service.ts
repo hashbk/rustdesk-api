@@ -92,7 +92,7 @@ export class OidcService {
 
     // 解析 OIDC 提供商标识
     const providerName = op.replace('oidc/', '');
-    
+
     const provider = await this.providerRepository.findOne({
       where: { name: providerName, enabled: true },
     });
@@ -103,7 +103,7 @@ export class OidcService {
 
     // 生成授权码
     const code = uuidv4();
-    
+
     // 生成 OIDC state 参数
     const state = uuidv4();
 
@@ -258,16 +258,34 @@ export class OidcService {
     });
 
     if (!user) {
-      // 自动创建用户
-      user = this.userRepository.create({
-        username: userInfo.username || userInfo.email.split('@')[0],
-        email: userInfo.email,
-        password: await bcrypt.hash(uuidv4(), 10),
-        status: 1, // UserStatus.ACTIVE
-        isAdmin: false,
-        thirdAuthType: 'oidc',
+      // 生成用户名，确保不与现有用户冲突
+      let username = userInfo.username || userInfo.email.split('@')[0];
+      const existingUserByUsername = await this.userRepository.findOne({
+        where: { username },
       });
-      await this.userRepository.save(user);
+
+      if (existingUserByUsername) {
+        // 如果用户名已存在，先检查是否是同一个用户（通过 email 匹配）
+        if (existingUserByUsername.email === userInfo.email) {
+          user = existingUserByUsername;
+        } else {
+          // 用户名冲突但 email 不同，添加后缀
+          username = `${username}_${Date.now()}`;
+        }
+      }
+
+      if (!user) {
+        // 自动创建用户
+        user = this.userRepository.create({
+          username,
+          email: userInfo.email,
+          password: await bcrypt.hash(uuidv4(), 10),
+          status: 1, // UserStatus.ACTIVE
+          isAdmin: false,
+          thirdAuthType: 'oidc',
+        });
+        await this.userRepository.save(user);
+      }
     } else if (!user.thirdAuthType) {
       // 更新第三方认证类型
       user.thirdAuthType = 'oidc';
@@ -390,7 +408,7 @@ export class OidcService {
     // 这里返回模拟数据用于测试
     // 实际项目中需要根据 provider 配置调用相应的 API
     this.logger.warn('OIDC code exchange not implemented, using mock data');
-    
+
     return {
       email: `oidc_user_${Date.now()}@example.com`,
       username: `oidc_user_${Date.now()}`,
