@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsNotEmpty, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsArray, IsBoolean, IsNumber } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 /**
  * 添加设备到地址簿的数据传输对象
@@ -53,6 +54,45 @@ export class AddPeerDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  // 以下字段为客户端发送的额外字段，暂不处理
+
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  hostname?: string;
+
+  @IsOptional()
+  @IsString()
+  platform?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  forceAlwaysRelay?: boolean;
+
+  @IsOptional()
+  @IsString()
+  rdpPort?: string;
+
+  @IsOptional()
+  @IsString()
+  rdpUsername?: string;
+
+  @IsOptional()
+  @IsString()
+  loginName?: string;
+
+  @IsOptional()
+  @IsString()
+  device_group_name?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  same_server?: boolean;
 }
 
 /**

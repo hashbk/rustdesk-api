@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, ShareRule } from './entities';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { Sysinfo } from '../system/entities/sysinfo.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Injectable()
 export class AddressBookService {
@@ -21,6 +22,8 @@ export class AddressBookService {
     private addressBookPeerTagRepository: Repository<AddressBookPeerTag>,
     @InjectRepository(Sysinfo)
     private sysinfoRepository: Repository<Sysinfo>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
   ) {}
 
   /**
@@ -138,20 +141,30 @@ export class AddressBookService {
       take: pageSize,
     });
 
-    // 获取所有设备ID，用于从sysinfos表获取信息
+    // 获取所有设备ID (uuid)，用于从 peers 表和 sysinfos 表获取信息
     const deviceIds = peers.map(p => p.deviceId);
+    
+    // 从 peers 表获取 RustDesk ID
+    const peerRecords = deviceIds.length > 0
+      ? await this.peerRepository.find({
+          where: { uuid: In(deviceIds) },
+        })
+      : [];
+    const peerMap = new Map(peerRecords.map(p => [p.uuid, p]));
+
+    // 从 sysinfos 表获取设备信息
     const sysinfos = deviceIds.length > 0
       ? await this.sysinfoRepository.find({
           where: { uuid: In(deviceIds) },
         })
       : [];
-
     const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
     const data = peers.map(p => {
+      const peerRecord = peerMap.get(p.deviceId);
       const sysinfo = sysinfoMap.get(p.deviceId);
       return {
-        id: p.deviceId,
+        id: peerRecord?.id || '',  // 返回 RustDesk ID
         hash: p.hash,
         password: p.password,
         username: sysinfo?.username || '',
@@ -198,9 +211,20 @@ export class AddressBookService {
       throw new NotFoundException('地址簿不存在');
     }
 
-    // 检查设备是否已存在
+    // 通过客户端发送的 id 查找 peers 表获取 uuid (deviceId)
+    const peerRecord = await this.peerRepository.findOne({
+      where: { id: dto.id },
+    });
+
+    if (!peerRecord) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    const deviceId = peerRecord.uuid;
+
+    // 检查设备是否已存在于地址簿
     const existingPeer = await this.addressBookPeerRepository.findOne({
-      where: { deviceId: dto.id, addressBookGuid },
+      where: { deviceId, addressBookGuid },
     });
 
     if (existingPeer) {
@@ -211,7 +235,7 @@ export class AddressBookService {
     const peer = this.addressBookPeerRepository.create({
       guid: peerGuid,
       addressBookGuid,
-      deviceId: dto.id,
+      deviceId,
       hash: dto.hash,
       password: dto.password,
       alias: dto.alias,
@@ -256,13 +280,24 @@ export class AddressBookService {
       await this.checkAddressBookAccess(addressBookGuid, userId, ShareRule.READ_WRITE);
     }
 
-    // 根据设备ID查找设备
+    // 通过客户端发送的 id 查找 peers 表获取 uuid (deviceId)
+    const peerRecord = await this.peerRepository.findOne({
+      where: { id: dto.id },
+    });
+
+    if (!peerRecord) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    const deviceId = peerRecord.uuid;
+
+    // 根据 deviceId 查找地址簿中的设备
     const peer = await this.addressBookPeerRepository.findOne({
-      where: { deviceId: dto.id, addressBookGuid },
+      where: { deviceId, addressBookGuid },
     });
 
     if (!peer) {
-      throw new NotFoundException('设备不存在');
+      throw new NotFoundException('设备不存在于此地址簿');
     }
 
     const updateData: Partial<AddressBookPeer> = {};
@@ -320,11 +355,20 @@ export class AddressBookService {
       throw new BadRequestException('请提供要删除的设备ID');
     }
 
-    // ids 是设备ID数组，需要根据 deviceId 删除
-    await this.addressBookPeerRepository.delete({
-      deviceId: In(ids),
-      addressBookGuid,
+    // ids 是 RustDesk ID 数组，需要先查找对应的 uuid
+    const peerRecords = await this.peerRepository.find({
+      where: { id: In(ids) },
     });
+
+    const deviceIds = peerRecords.map(p => p.uuid);
+
+    if (deviceIds.length > 0) {
+      // 根据 deviceId 删除
+      await this.addressBookPeerRepository.delete({
+        deviceId: In(deviceIds),
+        addressBookGuid,
+      });
+    }
 
     return {};
   }

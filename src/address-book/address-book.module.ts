@@ -4,9 +4,10 @@ import { AddressBookController } from './address-book.controller';
 import { AddressBookService } from './address-book.service';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag } from './entities';
 import { Sysinfo } from '../system/entities/sysinfo.entity';
+import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, Sysinfo])],
+  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, Sysinfo, Peer])],
   controllers: [AddressBookController],
   providers: [AddressBookService],
 })
