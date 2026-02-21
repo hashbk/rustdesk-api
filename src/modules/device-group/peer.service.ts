@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Peer } from '../heartbeat/entities/peer.entity';
-import { Sysinfo } from '../system/entities/sysinfo.entity';
+import { Peer, Sysinfo } from '../../common/entities';
 import { User } from '../user/entities/user.entity';
 import { DeviceGroup } from './entities/device-group.entity';
 import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';

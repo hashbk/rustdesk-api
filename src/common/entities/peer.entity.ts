@@ -1,5 +1,4 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { DeviceGroup } from '../../device-group/entities/device-group.entity';
 
 @Entity('peers')
 export class Peer {
@@ -24,10 +23,11 @@ export class Peer {
   /**
    * 关联的设备组实体
    * 多对一关系，关联到 DeviceGroup
+   * 使用字符串引用避免循环依赖
    */
-  @ManyToOne(() => DeviceGroup, { onDelete: 'SET NULL' })
+  @ManyToOne('DeviceGroup', 'peers', { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'deviceGroupGuid' })
-  deviceGroup: DeviceGroup;
+  deviceGroup: any;
 
   @Column()
   ver: number;

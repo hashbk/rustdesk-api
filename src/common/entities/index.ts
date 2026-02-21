@@ -1,8 +1,6 @@
 /**
  * 共享实体模块
  * 导出所有被多个模块使用的实体
- * 
- * 注意：由于实体之间存在循环依赖，暂时保留在原位置
- * 后续可以通过重构解决
  */
+export { Peer } from './peer.entity';
 export { Sysinfo } from './sysinfo.entity';

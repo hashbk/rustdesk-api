@@ -3,33 +3,33 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { HeartbeatModule } from './heartbeat/heartbeat.module';
-import { AddressBookModule } from './address-book/address-book.module';
-import { AuditModule } from './audit/audit.module';
-import { UserModule } from './user/user.module';
-import { DeviceGroupModule } from './device-group/device-group.module';
-import { AuthModule } from './auth/auth.module';
-import { OidcModule } from './oidc/oidc.module';
-import { SystemModule } from './system/system.module';
+import { HeartbeatModule } from './modules/heartbeat/heartbeat.module';
+import { AddressBookModule } from './modules/address-book/address-book.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { UserModule } from './modules/user/user.module';
+import { DeviceGroupModule } from './modules/device-group/device-group.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { OidcModule } from './modules/oidc/oidc.module';
+import { SystemModule } from './modules/system/system.module';
+import { AdminModule } from './admin/admin.module';
 import { DatabaseModule } from './database/database.module';
-import { Sysinfo } from './system/entities/sysinfo.entity';
-import { Peer } from './heartbeat/entities/peer.entity';
-import { ConnectionAudit } from './audit/entities/connection-audit.entity';
-import { FileAudit } from './audit/entities/file-audit.entity';
-import { AlarmAudit } from './audit/entities/alarm-audit.entity';
-import { AddressBook } from './address-book/entities/address-book.entity';
-import { AddressBookPeer } from './address-book/entities/address-book-peer.entity';
-import { AddressBookTag } from './address-book/entities/address-book-tag.entity';
-import { AddressBookShare } from './address-book/entities/address-book-share.entity';
-import { AddressBookPeerTag } from './address-book/entities/address-book-peer-tag.entity';
-import { User } from './user/entities/user.entity';
-import { UserToken } from './user/entities/user-token.entity';
-import { OidcProvider } from './oidc/entities/oidc-provider.entity';
-import { OidcAuthState } from './oidc/entities/oidc-auth-state.entity';
-import { DeviceGroup } from './device-group/entities/device-group.entity';
-import { DeviceGroupUserPermission } from './device-group/entities/device-group-user-permission.entity';
-import { UserUserPermission } from './device-group/entities/user-user-permission.entity';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { Sysinfo, Peer } from './common/entities';
+import { ConnectionAudit } from './modules/audit/entities/connection-audit.entity';
+import { FileAudit } from './modules/audit/entities/file-audit.entity';
+import { AlarmAudit } from './modules/audit/entities/alarm-audit.entity';
+import { AddressBook } from './modules/address-book/entities/address-book.entity';
+import { AddressBookPeer } from './modules/address-book/entities/address-book-peer.entity';
+import { AddressBookTag } from './modules/address-book/entities/address-book-tag.entity';
+import { AddressBookShare } from './modules/address-book/entities/address-book-share.entity';
+import { AddressBookPeerTag } from './modules/address-book/entities/address-book-peer-tag.entity';
+import { User } from './modules/user/entities/user.entity';
+import { UserToken } from './modules/user/entities/user-token.entity';
+import { OidcProvider } from './modules/oidc/entities/oidc-provider.entity';
+import { OidcAuthState } from './modules/oidc/entities/oidc-auth-state.entity';
+import { DeviceGroup } from './modules/device-group/entities/device-group.entity';
+import { DeviceGroupUserPermission } from './modules/device-group/entities/device-group-user-permission.entity';
+import { UserUserPermission } from './modules/device-group/entities/user-user-permission.entity';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -49,6 +49,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     AuthModule,
     OidcModule,
     SystemModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

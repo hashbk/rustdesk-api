@@ -4,8 +4,7 @@ import { Repository, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, ShareRule } from './entities';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
-import { Sysinfo } from '../system/entities/sysinfo.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
+import { Sysinfo, Peer } from '../../common/entities';
 
 @Injectable()
 export class AddressBookService {

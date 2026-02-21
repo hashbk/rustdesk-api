@@ -2,11 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { Sysinfo } from './entities/sysinfo.entity';
+import { Sysinfo, Peer } from '../../common/entities';
 import { SysinfoDto } from './dto/sysinfo.dto';
 import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/entities';
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
 
 @Injectable()
 export class SystemService {

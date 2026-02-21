@@ -37,6 +37,13 @@ export class DeviceGroup {
   userPermissions: DeviceGroupUserPermission[];
 
   /**
+   * 设备组中的设备列表
+   * 一对多关系，关联到 Peer
+   */
+  @OneToMany('Peer', 'deviceGroup', { cascade: true })
+  peers: any[];
+
+  /**
    * 创建时间
    */
   @CreateDateColumn()

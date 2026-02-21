@@ -3,8 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from './entities/user.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
-import { Sysinfo } from '../system/entities/sysinfo.entity';
+import { Peer, Sysinfo } from '../../common/entities';
 import { UpdateUserDto, AdminUpdateUserDto } from './dto/user.dto';
 
 @Injectable()

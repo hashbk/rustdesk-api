@@ -2,9 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { User, UserStatus } from '../user/entities/user.entity';
-import { OidcProvider } from '../oidc/entities/oidc-provider.entity';
-import { OidcAuthState } from '../oidc/entities/oidc-auth-state.entity';
+import { User, UserStatus } from '../modules/user/entities/user.entity';
+import { OidcProvider } from '../modules/oidc/entities/oidc-provider.entity';
+import { OidcAuthState } from '../modules/oidc/entities/oidc-auth-state.entity';
 
 @Injectable()
 export class DatabaseInitService implements OnModuleInit {

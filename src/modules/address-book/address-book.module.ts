@@ -3,8 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AddressBookController } from './address-book.controller';
 import { AddressBookService } from './address-book.service';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag } from './entities';
-import { Sysinfo } from '../system/entities/sysinfo.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
+import { Sysinfo, Peer } from '../../common/entities';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, Sysinfo, Peer])],

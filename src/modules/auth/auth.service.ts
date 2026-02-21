@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { authenticator } from 'otplib';
 import { User, UserStatus, UserInfo } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
+import { Peer } from '../../common/entities';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 
 export interface JwtPayload {

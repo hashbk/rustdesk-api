@@ -6,8 +6,7 @@ import { PeerService } from './peer.service';
 import { DeviceGroup } from './entities/device-group.entity';
 import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
 import { UserUserPermission } from './entities/user-user-permission.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
-import { Sysinfo } from '../system/entities/sysinfo.entity';
+import { Peer, Sysinfo } from '../../common/entities';
 import { User } from '../user/entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
 

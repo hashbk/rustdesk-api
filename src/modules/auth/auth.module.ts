@@ -7,7 +7,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
-import { Peer } from '../heartbeat/entities/peer.entity';
+import { Peer } from '../../common/entities';
 
 @Module({
   imports: [
