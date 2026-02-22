@@ -45,28 +45,9 @@ export class UpdateDeviceGroupDto {
 }
 
 /**
- * 设备组响应DTO
- */
-export class DeviceGroupResponseDto {
-  name: string;
-}
-
-/**
  * 添加用户设备组权限DTO
  */
 export class AddDeviceGroupUserPermissionDto {
-  @IsUUID()
-  deviceGroupGuid: string;
-
-  @IsNumber()
-  @IsInt()
-  userId: number;
-}
-
-/**
- * 删除用户设备组权限DTO
- */
-export class RemoveDeviceGroupUserPermissionDto {
   @IsUUID()
   deviceGroupGuid: string;
 

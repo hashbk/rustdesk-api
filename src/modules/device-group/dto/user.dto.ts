@@ -26,33 +26,9 @@ export class UserQueryDto {
 }
 
 /**
- * 用户响应DTO
- */
-export class UserResponseDto {
-  name: string;        // 用户名
-  email: string;       // 邮箱
-  note: string;        // 备注
-  status: number;      // 状态: 0=禁用, 1=正常, -1=未验证
-  is_admin: boolean;   // 是否管理员
-}
-
-/**
  * 添加用户间权限DTO
  */
 export class AddUserUserPermissionDto {
-  @IsNumber()
-  @IsInt()
-  userId: number;         // 授权用户ID
-
-  @IsNumber()
-  @IsInt()
-  targetUserId: number;   // 目标用户ID
-}
-
-/**
- * 删除用户间权限DTO
- */
-export class RemoveUserUserPermissionDto {
   @IsNumber()
   @IsInt()
   userId: number;         // 授权用户ID

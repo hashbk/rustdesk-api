@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Res, UseGuards, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Res, HttpStatus } from '@nestjs/common';
 import { OidcService } from './oidc.service';
 import { OidcAuthRequestDto, OidcCancelDto, OidcProviderDto } from './dto/oidc.dto';
 import { Public } from '../auth/decorators/public.decorator';

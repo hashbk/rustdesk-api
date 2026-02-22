@@ -39,28 +39,6 @@ export class UpdatePeerDto {
 }
 
 /**
- * 设备信息DTO
- */
-export class PeerInfoDto {
-  username: string;    // 系统用户名
-  os: string;          // 操作系统
-  device_name: string; // 设备名称
-}
-
-/**
- * 设备响应DTO
- */
-export class PeerResponseDto {
-  id: string;                      // RustDesk 设备 ID
-  info: PeerInfoDto;               // 设备信息
-  status: number;                  // 在线状态 (1=在线)
-  user: string;                    // 设备所有者用户名
-  user_name: string;               // 设备所有者显示名（用于过滤）
-  device_group_name?: string;      // 所属设备组名称（用于过滤）
-  note: string;                    // 备注
-}
-
-/**
  * 批量设置设备设备组DTO
  */
 export class SetPeerDeviceGroupDto {

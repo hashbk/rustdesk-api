@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe } 
 import { UserService } from './user.service';
 import { UpdateUserDto, AdminUpdateUserDto } from './dto/user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User, UserStatus } from './entities/user.entity';
+import { UserStatus } from './entities/user.entity';
 
 @Controller()
 export class UserController {
