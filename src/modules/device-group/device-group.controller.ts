@@ -1,21 +1,22 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { DeviceGroupService } from './device-group.service';
 import { PeerService } from './peer.service';
 import { 
   DeviceGroupQueryDto, 
   CreateDeviceGroupDto, 
   UpdateDeviceGroupDto,
-  SetDeviceGroupUsersDto,
 } from './dto/device-group.dto';
 import { PeerQueryDto } from './dto/peer.dto';
 import { UserQueryDto } from './dto/user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards';
 
 /**
  * 设备组控制器
  * 管理设备组相关的客户端接口
  * 
  * 注意：管理员接口已移至 admin 模块统一管理
+ * 这里保留的 /api/device-groups 接口是为了向后兼容
  */
 @Controller()
 export class DeviceGroupController {
@@ -76,15 +77,11 @@ export class DeviceGroupController {
    * GET /api/device-groups
    */
   @Get('device-groups')
+  @UseGuards(AdminGuard)
   async getAllDeviceGroups(
-    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
 
@@ -109,14 +106,8 @@ export class DeviceGroupController {
    * GET /api/device-groups/:guid
    */
   @Get('device-groups/:guid')
-  async getDeviceGroup(
-    @Param('guid') guid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  @UseGuards(AdminGuard)
+  async getDeviceGroup(@Param('guid') guid: string) {
     const group = await this.deviceGroupService.findByGuid(guid);
     if (!group) {
       return { error: '设备组不存在' };
@@ -140,14 +131,8 @@ export class DeviceGroupController {
    * POST /api/device-groups
    */
   @Post('device-groups')
-  async createDeviceGroup(
-    @Body() createDto: CreateDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  @UseGuards(AdminGuard)
+  async createDeviceGroup(@Body() createDto: CreateDeviceGroupDto) {
     const group = await this.deviceGroupService.create(createDto);
     return {
       guid: group.guid,
@@ -161,15 +146,11 @@ export class DeviceGroupController {
    * PUT /api/device-groups/:guid
    */
   @Put('device-groups/:guid')
+  @UseGuards(AdminGuard)
   async updateDeviceGroup(
     @Param('guid') guid: string,
     @Body() updateDto: UpdateDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const group = await this.deviceGroupService.update(guid, updateDto);
     return {
       guid: group.guid,
@@ -183,14 +164,8 @@ export class DeviceGroupController {
    * DELETE /api/device-groups/:guid
    */
   @Delete('device-groups/:guid')
-  async deleteDeviceGroup(
-    @Param('guid') guid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  @UseGuards(AdminGuard)
+  async deleteDeviceGroup(@Param('guid') guid: string) {
     await this.deviceGroupService.delete(guid);
     return { message: '删除成功' };
   }
@@ -200,15 +175,11 @@ export class DeviceGroupController {
    * POST /api/device-groups/:guid/users
    */
   @Post('device-groups/:guid/users')
+  @UseGuards(AdminGuard)
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
     @Body() body: { userIds: number[] },
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
       userIds: body.userIds,

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { DeviceGroupService } from '../modules/device-group/device-group.service';
 import { PeerService } from '../modules/device-group/peer.service';
 import { UserService } from '../modules/user/user.service';
@@ -13,12 +13,15 @@ import { AddUserUserPermissionDto, SetUserPermissionsDto } from '../modules/devi
 import { AdminUpdateUserDto } from '../modules/user/dto/user.dto';
 import { OidcProviderDto } from '../modules/oidc/dto/oidc.dto';
 import { CurrentUser } from '../common/decorators';
+import { AdminGuard } from '../common/guards';
 
 /**
  * 管理员接口控制器
  * 统一管理所有需要管理员权限的接口
+ * 使用 AdminGuard 进行权限验证
  */
 @Controller('admin')
+@UseGuards(AdminGuard)
 export class AdminController {
   constructor(
     private readonly deviceGroupService: DeviceGroupService,
@@ -35,14 +38,9 @@ export class AdminController {
    */
   @Get('device-groups')
   async getAllDeviceGroups(
-    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
 
@@ -67,14 +65,7 @@ export class AdminController {
    * GET /api/admin/device-groups/:guid
    */
   @Get('device-groups/:guid')
-  async getDeviceGroup(
-    @Param('guid') guid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async getDeviceGroup(@Param('guid') guid: string) {
     const group = await this.deviceGroupService.findByGuid(guid);
     if (!group) {
       return { error: '设备组不存在' };
@@ -97,14 +88,7 @@ export class AdminController {
    * POST /api/admin/device-groups
    */
   @Post('device-groups')
-  async createDeviceGroup(
-    @Body() createDto: CreateDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async createDeviceGroup(@Body() createDto: CreateDeviceGroupDto) {
     const group = await this.deviceGroupService.create(createDto);
     return {
       guid: group.guid,
@@ -121,12 +105,7 @@ export class AdminController {
   async updateDeviceGroup(
     @Param('guid') guid: string,
     @Body() updateDto: UpdateDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const group = await this.deviceGroupService.update(guid, updateDto);
     return {
       guid: group.guid,
@@ -140,14 +119,7 @@ export class AdminController {
    * DELETE /api/admin/device-groups/:guid
    */
   @Delete('device-groups/:guid')
-  async deleteDeviceGroup(
-    @Param('guid') guid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async deleteDeviceGroup(@Param('guid') guid: string) {
     await this.deviceGroupService.delete(guid);
     return { message: '删除成功' };
   }
@@ -160,12 +132,7 @@ export class AdminController {
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
     @Body() body: { userIds: number[] },
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
       userIds: body.userIds,
@@ -181,14 +148,9 @@ export class AdminController {
    */
   @Get('peers')
   async getAllPeers(
-    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
 
@@ -223,12 +185,7 @@ export class AdminController {
   async updatePeer(
     @Param('uuid') uuid: string,
     @Body() updateDto: UpdatePeerDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     await this.peerService.updatePeerInfo(uuid, updateDto);
     return { message: '更新成功' };
   }
@@ -238,14 +195,7 @@ export class AdminController {
    * DELETE /api/admin/peers/:uuid
    */
   @Delete('peers/:uuid')
-  async deletePeer(
-    @Param('uuid') uuid: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async deletePeer(@Param('uuid') uuid: string) {
     await this.peerService.deletePeer(uuid);
     return { message: '删除成功' };
   }
@@ -255,14 +205,7 @@ export class AdminController {
    * POST /api/admin/peers/device-group
    */
   @Post('peers/device-group')
-  async setPeerDeviceGroup(
-    @Body() dto: SetPeerDeviceGroupDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async setPeerDeviceGroup(@Body() dto: SetPeerDeviceGroupDto) {
     await this.peerService.setPeerDeviceGroup(dto);
     return { message: '设置成功' };
   }
@@ -274,14 +217,7 @@ export class AdminController {
    * POST /api/admin/device-group-permissions
    */
   @Post('device-group-permissions')
-  async addDeviceGroupUserPermission(
-    @Body() dto: AddDeviceGroupUserPermissionDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async addDeviceGroupUserPermission(@Body() dto: AddDeviceGroupUserPermissionDto) {
     await this.deviceGroupService.addUserPermission(dto);
     return { message: '添加成功' };
   }
@@ -294,12 +230,7 @@ export class AdminController {
   async removeDeviceGroupUserPermission(
     @Param('deviceGroupGuid') deviceGroupGuid: string,
     @Param('userId', ParseIntPipe) userId: number,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userId);
     return { message: '删除成功' };
   }
@@ -309,14 +240,7 @@ export class AdminController {
    * POST /api/admin/user-permissions
    */
   @Post('user-permissions')
-  async addUserUserPermission(
-    @Body() dto: AddUserUserPermissionDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async addUserUserPermission(@Body() dto: AddUserUserPermissionDto) {
     await this.deviceGroupService.addUserUserPermission(dto);
     return { message: '添加成功' };
   }
@@ -329,12 +253,7 @@ export class AdminController {
   async removeUserUserPermission(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('targetUserId', ParseIntPipe) targetUserId: number,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     await this.deviceGroupService.removeUserUserPermission(userId, targetUserId);
     return { message: '删除成功' };
   }
@@ -344,14 +263,7 @@ export class AdminController {
    * POST /api/admin/user-permissions/batch
    */
   @Post('user-permissions/batch')
-  async setUserPermissions(
-    @Body() dto: SetUserPermissionsDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async setUserPermissions(@Body() dto: SetUserPermissionsDto) {
     await this.deviceGroupService.setUserPermissions(dto);
     return { message: '设置成功' };
   }
@@ -364,14 +276,9 @@ export class AdminController {
    */
   @Get('users')
   async getAllUsers(
-    @CurrentUser('isAdmin') isAdmin: boolean,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
 
@@ -402,12 +309,7 @@ export class AdminController {
   async updateUser(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: AdminUpdateUserDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const user = await this.userService.adminUpdateUser(id, updateDto);
     return {
       id: user.id,
@@ -427,12 +329,7 @@ export class AdminController {
   async deleteUser(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('id') currentUserId: number,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     if (id === currentUserId) {
       return { error: '不能删除自己' };
     }
@@ -448,13 +345,7 @@ export class AdminController {
    * GET /api/admin/oidc/providers
    */
   @Get('oidc/providers')
-  async getAllOidcProviders(
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async getAllOidcProviders() {
     const providers = await this.oidcService.getAllProviders();
     return providers.map(p => ({
       id: p.id,
@@ -474,14 +365,7 @@ export class AdminController {
    * POST /api/admin/oidc/providers
    */
   @Post('oidc/providers')
-  async createOidcProvider(
-    @Body() providerData: OidcProviderDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async createOidcProvider(@Body() providerData: OidcProviderDto) {
     const provider = await this.oidcService.upsertProvider(providerData);
     return {
       id: provider.id,
@@ -499,12 +383,7 @@ export class AdminController {
   async updateOidcProvider(
     @Param('name') name: string,
     @Body() providerData: OidcProviderDto,
-    @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
     const provider = await this.oidcService.upsertProvider({
       ...providerData,
       name,
@@ -523,14 +402,7 @@ export class AdminController {
    * DELETE /api/admin/oidc/providers/:name
    */
   @Delete('oidc/providers/:name')
-  async deleteOidcProvider(
-    @Param('name') name: string,
-    @CurrentUser('isAdmin') isAdmin: boolean,
-  ) {
-    if (!isAdmin) {
-      return { error: '无权限访问' };
-    }
-
+  async deleteOidcProvider(@Param('name') name: string) {
     await this.oidcService.deleteProvider(name);
     return { message: '删除成功' };
   }
