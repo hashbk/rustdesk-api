@@ -1,16 +1,17 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { AuditService, AuditQueryDto } from './audit.service';
 import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards';
 
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
-  // ============ 审计记录接口 ============
+  // ============ 审计记录接口（客户端调用，保持公开）============
 
   @Public()
   @Post('conn')
@@ -45,13 +46,14 @@ export class AuditController {
     };
   }
 
-  // ============ 审计查询接口（管理员） ============
+  // ============ 审计查询接口（需要管理员权限）============
 
   /**
    * 查询连接审计记录
    * GET /api/audit/connections?page=1&limit=20&deviceId=xxx&startDate=xxx&endDate=xxx&action=xxx&type=0
    */
   @Get('connections')
+  @UseGuards(AdminGuard)
   async queryConnectionAudits(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -60,7 +62,6 @@ export class AuditController {
     @Query('endDate') endDate?: string,
     @Query('action') action?: string,
     @Query('type') type?: string,
-    @CurrentUser('isAdmin') isAdmin?: boolean,
   ) {
     const query: AuditQueryDto = {
       page: page ? parseInt(page, 10) : 1,
@@ -80,13 +81,13 @@ export class AuditController {
    * GET /api/audit/files?page=1&limit=20&deviceId=xxx&startDate=xxx&endDate=xxx
    */
   @Get('files')
+  @UseGuards(AdminGuard)
   async queryFileAudits(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('deviceId') deviceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @CurrentUser('isAdmin') isAdmin?: boolean,
   ) {
     const query: AuditQueryDto = {
       page: page ? parseInt(page, 10) : 1,
@@ -104,13 +105,13 @@ export class AuditController {
    * GET /api/audit/alarms?page=1&limit=20&deviceId=xxx&startDate=xxx&endDate=xxx
    */
   @Get('alarms')
+  @UseGuards(AdminGuard)
   async queryAlarmAudits(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('deviceId') deviceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @CurrentUser('isAdmin') isAdmin?: boolean,
   ) {
     const query: AuditQueryDto = {
       page: page ? parseInt(page, 10) : 1,
@@ -128,10 +129,8 @@ export class AuditController {
    * GET /api/audit/stats?deviceId=xxx
    */
   @Get('stats')
-  async getAuditStats(
-    @Query('deviceId') deviceId?: string,
-    @CurrentUser('isAdmin') isAdmin?: boolean,
-  ) {
+  @UseGuards(AdminGuard)
+  async getAuditStats(@Query('deviceId') deviceId?: string) {
     return this.auditService.getAuditStats(deviceId);
   }
 }

@@ -87,8 +87,8 @@ export class AuthService {
 
     // 根据登录类型处理
     if (type === 'sms_code' || type === 'email_code') {
-      // 验证码登录（也处理 TFA 验证）
-      return this.handleCodeLogin(loginDto);
+      // 短信/邮箱验证码登录功能正在开发中，暂时禁用
+        throw new BadRequestException('短信/邮箱验证码登录功能正在开发中，暂时不可用');
     }
 
     if (type === 'tfa_code') {

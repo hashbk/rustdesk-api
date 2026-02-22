@@ -33,6 +33,11 @@ export class DatabaseInitService implements OnModuleInit {
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
 
+      // 检查是否使用默认密码
+      if (!process.env.ADMIN_PASSWORD) {
+        this.logger.warn('WARNING: Using default admin password "admin123". Please set ADMIN_PASSWORD environment variable in production!');
+      }
+
     const existingAdmin = await this.userRepository.findOne({
       where: { username: adminUsername },
     });

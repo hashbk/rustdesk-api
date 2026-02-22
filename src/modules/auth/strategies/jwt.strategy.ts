@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
@@ -7,11 +7,21 @@ import { JwtPayload } from '../../../common/services/token.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(private authService: AuthService) {
+    const jwtSecret = process.env.JWT_SECRET || 'rustdesk-api-secret-key-change-in-production';
+    
+    // 检查是否使用默认 JWT 密钥
+    if (!process.env.JWT_SECRET) {
+      const logger = new Logger('JwtStrategy');
+      logger.warn('WARNING: Using default JWT secret key. Please set JWT_SECRET environment variable in production!');
+    }
+    
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'rustdesk-api-secret-key-change-in-production',
+      secretOrKey: jwtSecret,
       passReqToCallback: true,
     });
   }
