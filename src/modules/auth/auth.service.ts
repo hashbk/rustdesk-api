@@ -9,14 +9,7 @@ import { User, UserStatus, UserInfo } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
 import { Peer } from '../../common/entities';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
-
-export interface JwtPayload {
-  sub: number;
-  username: string;
-  email: string;
-  isAdmin: boolean;
-  deviceId?: string;
-}
+import { JwtPayload } from '../../common/services/token.service';
 
 export interface LoginResponse {
   access_token?: string;

@@ -20,3 +20,6 @@ export * from './formatters';
 
 // 服务
 export * from './services';
+
+// 常量
+export * from './constants';
