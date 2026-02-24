@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, ShareRule } from './entities';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { Sysinfo, Peer } from '../../common/entities';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class AddressBookService {
@@ -23,6 +24,8 @@ export class AddressBookService {
     private sysinfoRepository: Repository<Sysinfo>,
     @InjectRepository(Peer)
     private peerRepository: Repository<Peer>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   /**
@@ -103,10 +106,26 @@ export class AddressBookService {
       take: pageSize,
     });
 
+    // 收集所有 owner (用户GUID)
+    const ownerGuids = [...new Set(
+      shared
+        .map(s => s.addressBook?.owner)
+        .filter((guid): guid is string => !!guid)
+    )];
+
+    // 批量查询用户信息
+    const users = ownerGuids.length > 0
+      ? await this.userRepository.find({
+          where: { guid: In(ownerGuids) },
+          select: ['guid', 'username'],
+        })
+      : [];
+    const userMap = new Map(users.map(u => [u.guid, u.username]));
+
     const data = shared.map(s => ({
       guid: s.addressBookGuid,
       name: s.addressBook?.name || '',
-      owner: s.addressBook?.owner || '',
+      owner: userMap.get(s.addressBook?.owner || '') || s.addressBook?.owner || '',
       note: s.addressBook?.note || '',
       rule: s.rule,
       info: s.addressBook?.info ? JSON.parse(s.addressBook.info) : {},
