@@ -5,7 +5,7 @@ import { User } from '../../user/entities/user.entity';
 /**
  * 用户设备组权限实体
  * 管理用户对设备组的访问权限
- * 使用复合主键 (deviceGroupGuid, userId)
+ * 使用复合主键 (deviceGroupGuid, userGuid)
  */
 @Entity('device_group_user_permissions')
 export class DeviceGroupUserPermission {
@@ -18,12 +18,12 @@ export class DeviceGroupUserPermission {
   deviceGroupGuid: string;
 
   /**
-   * 用户ID
-   * 关联到 users 表的 id 字段
+   * 用户唯一标识符
+   * 关联到 users 表的 guid 字段
    */
   @PrimaryColumn()
   @Index()
-  userId: number;
+  userGuid: string;
 
   /**
    * 关联的设备组实体
@@ -38,7 +38,7 @@ export class DeviceGroupUserPermission {
    * 多对一关系，关联到 User
    */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'userGuid' })
   user: User;
 
   /**

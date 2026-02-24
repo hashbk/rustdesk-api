@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { UserToken } from '../../modules/user/entities/user-token.entity';
 import { User } from '../../modules/user/entities/user.entity';
 
@@ -9,7 +10,7 @@ import { User } from '../../modules/user/entities/user.entity';
  * JWT Payload 接口
  */
 export interface JwtPayload {
-  sub: number;
+  sub: string;
   username: string;
   email?: string;
   isAdmin: boolean;
@@ -46,7 +47,7 @@ export class TokenService {
     deviceUuid?: string,
   ): Promise<string> {
     const payload: JwtPayload = {
-      sub: user.id,
+      sub: user.guid,
       username: user.username,
       email: user.email,
       isAdmin: user.isAdmin,
@@ -60,7 +61,8 @@ export class TokenService {
     expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
 
     const userToken = this.tokenRepository.create({
-      userId: user.id,
+      guid: uuidv4(),
+      userGuid: user.guid,
       token,
       deviceId,
       deviceUuid,
@@ -98,41 +100,41 @@ export class TokenService {
 
   /**
    * 撤销 Token
-   * @param userId 用户ID
+   * @param userGuid 用户唯一标识符
    * @param token Token 字符串
    */
-  async revokeToken(userId: number, token: string): Promise<void> {
+  async revokeToken(userGuid: string, token: string): Promise<void> {
     await this.tokenRepository.update(
-      { userId, token, isRevoked: false },
+      { userGuid, token, isRevoked: false },
       { isRevoked: true },
     );
   }
 
   /**
    * 撤销用户的所有 Token
-   * @param userId 用户ID
+   * @param userGuid 用户唯一标识符
    */
-  async revokeAllTokens(userId: number): Promise<void> {
+  async revokeAllTokens(userGuid: string): Promise<void> {
     await this.tokenRepository.update(
-      { userId, isRevoked: false },
+      { userGuid, isRevoked: false },
       { isRevoked: true },
     );
   }
 
   /**
    * 撤销设备的所有 Token
-   * @param userId 用户ID
+   * @param userGuid 用户唯一标识符
    * @param deviceId 设备ID
    * @param deviceUuid 设备UUID
    */
   async revokeDeviceTokens(
-    userId: number,
+    userGuid: string,
     deviceId?: string,
     deviceUuid?: string,
   ): Promise<void> {
     await this.tokenRepository.update(
       {
-        userId,
+        userGuid,
         deviceId,
         deviceUuid,
         isRevoked: false,

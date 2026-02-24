@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { DeviceGroupService } from '../modules/device-group/device-group.service';
 import { PeerService } from '../modules/device-group/peer.service';
 import { UserService } from '../modules/user/user.service';
@@ -131,11 +131,11 @@ export class AdminController {
   @Post('device-groups/:guid/users')
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
-    @Body() body: { userIds: number[] },
+    @Body() body: { userGuids: string[] },
   ) {
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
-      userIds: body.userIds,
+      userGuids: body.userGuids,
     });
     return { message: '设置成功' };
   }
@@ -162,7 +162,7 @@ export class AdminController {
       peers: peers.map(p => ({
         id: p.id,
         uuid: p.uuid,
-        user_id: p.userId,
+        user_guid: p.userGuid,
         device_group_guid: p.deviceGroupGuid,
         device_group_name: p.deviceGroup?.name || '',
         ver: p.ver,
@@ -224,14 +224,14 @@ export class AdminController {
 
   /**
    * 删除用户设备组权限
-   * DELETE /api/admin/device-group-permissions/:deviceGroupGuid/:userId
+   * DELETE /api/admin/device-group-permissions/:deviceGroupGuid/:userGuid
    */
-  @Delete('device-group-permissions/:deviceGroupGuid/:userId')
+  @Delete('device-group-permissions/:deviceGroupGuid/:userGuid')
   async removeDeviceGroupUserPermission(
     @Param('deviceGroupGuid') deviceGroupGuid: string,
-    @Param('userId', ParseIntPipe) userId: number,
+    @Param('userGuid') userGuid: string,
   ) {
-    await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userId);
+    await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userGuid);
     return { message: '删除成功' };
   }
 
@@ -247,14 +247,14 @@ export class AdminController {
 
   /**
    * 删除用户间权限
-   * DELETE /api/admin/user-permissions/:userId/:targetUserId
+   * DELETE /api/admin/user-permissions/:userGuid/:targetUserGuid
    */
-  @Delete('user-permissions/:userId/:targetUserId')
+  @Delete('user-permissions/:userGuid/:targetUserGuid')
   async removeUserUserPermission(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('targetUserId', ParseIntPipe) targetUserId: number,
+    @Param('userGuid') userGuid: string,
+    @Param('targetUserGuid') targetUserGuid: string,
   ) {
-    await this.deviceGroupService.removeUserUserPermission(userId, targetUserId);
+    await this.deviceGroupService.removeUserUserPermission(userGuid, targetUserGuid);
     return { message: '删除成功' };
   }
 
@@ -286,7 +286,7 @@ export class AdminController {
 
     return {
       users: users.map(u => ({
-        id: u.id,
+        guid: u.guid,
         name: u.username,
         email: u.email,
         note: u.note,
@@ -303,16 +303,16 @@ export class AdminController {
 
   /**
    * 更新用户信息（管理员）
-   * PUT /api/admin/users/:id
+   * PUT /api/admin/users/:guid
    */
-  @Put('users/:id')
+  @Put('users/:guid')
   async updateUser(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('guid') guid: string,
     @Body() updateDto: AdminUpdateUserDto,
   ) {
-    const user = await this.userService.adminUpdateUser(id, updateDto);
+    const user = await this.userService.adminUpdateUser(guid, updateDto);
     return {
-      id: user.id,
+      guid: user.guid,
       name: user.username,
       email: user.email,
       note: user.note,
@@ -323,18 +323,18 @@ export class AdminController {
 
   /**
    * 删除用户
-   * DELETE /api/admin/users/:id
+   * DELETE /api/admin/users/:guid
    */
-  @Delete('users/:id')
+  @Delete('users/:guid')
   async deleteUser(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('id') currentUserId: number,
+    @Param('guid') guid: string,
+    @CurrentUser('guid') currentUserGuid: string,
   ) {
-    if (id === currentUserId) {
+    if (guid === currentUserGuid) {
       return { error: '不能删除自己' };
     }
 
-    await this.userService.deleteUser(id);
+    await this.userService.deleteUser(guid);
     return { message: '删除成功' };
   }
 
@@ -348,7 +348,7 @@ export class AdminController {
   async getAllOidcProviders() {
     const providers = await this.oidcService.getAllProviders();
     return providers.map(p => ({
-      id: p.id,
+      guid: p.guid,
       name: p.name,
       issuer: p.issuer,
       client_id: p.clientId,
@@ -368,7 +368,7 @@ export class AdminController {
   async createOidcProvider(@Body() providerData: OidcProviderDto) {
     const provider = await this.oidcService.upsertProvider(providerData);
     return {
-      id: provider.id,
+      guid: provider.guid,
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,
@@ -390,7 +390,7 @@ export class AdminController {
     });
 
     return {
-      id: provider.id,
+      guid: provider.guid,
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,

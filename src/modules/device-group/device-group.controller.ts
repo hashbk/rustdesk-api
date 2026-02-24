@@ -34,11 +34,11 @@ export class DeviceGroupController {
    */
   @Get('device-group/accessible')
   async getAccessibleDeviceGroups(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('guid') userGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: DeviceGroupQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleDeviceGroups(userId, query, isAdmin);
+    return this.deviceGroupService.getAccessibleDeviceGroups(userGuid, query, isAdmin);
   }
 
   /**
@@ -48,11 +48,11 @@ export class DeviceGroupController {
    */
   @Get('peers')
   async getAccessiblePeers(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('guid') userGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: PeerQueryDto,
   ) {
-    return this.peerService.getAccessiblePeers(userId, query, isAdmin);
+    return this.peerService.getAccessiblePeers(userGuid, query, isAdmin);
   }
 
   /**
@@ -62,11 +62,11 @@ export class DeviceGroupController {
    */
   @Get('users')
   async getAccessibleUsers(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('guid') userGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: UserQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
+    return this.deviceGroupService.getAccessibleUsers(userGuid, query, isAdmin);
   }
 
   // ============ 设备组管理接口（需要管理员权限）============
@@ -178,11 +178,11 @@ export class DeviceGroupController {
   @UseGuards(AdminGuard)
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
-    @Body() body: { userIds: number[] },
+    @Body() body: { userGuids: string[] },
   ) {
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
-      userIds: body.userIds,
+      userGuids: body.userGuids,
     });
     return { message: '设置成功' };
   }

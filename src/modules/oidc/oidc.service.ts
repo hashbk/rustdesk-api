@@ -116,6 +116,7 @@ export class OidcService {
 
     // 保存授权状态
     const authState = this.authStateRepository.create({
+      guid: uuidv4(),
       code,
       op,
       deviceId: id,
@@ -184,7 +185,7 @@ export class OidcService {
     if (authState.status === OidcAuthStatus.AUTHORIZED && authState.accessToken) {
       // 获取用户信息
       const user = await this.userRepository.findOne({
-        where: { id: authState.userId },
+        where: { guid: authState.userGuid },
       });
 
       if (!user) {
@@ -277,6 +278,7 @@ export class OidcService {
       if (!user) {
         // 自动创建用户
         user = this.userRepository.create({
+          guid: uuidv4(),
           username,
           email: userInfo.email,
           password: await bcrypt.hash(uuidv4(), 10),
@@ -297,12 +299,12 @@ export class OidcService {
 
     // 更新授权状态
     authState.status = OidcAuthStatus.AUTHORIZED;
-    authState.userId = user.id;
+    authState.userGuid = user.guid;
     authState.accessToken = token;
     authState.oidcAccessToken = userInfo.access_token;
     await this.authStateRepository.save(authState);
 
-    this.logger.log(`OIDC auth completed: userId=${user.id}, code=${authState.code}`);
+    this.logger.log(`OIDC auth completed: userGuid=${user.guid}, code=${authState.code}`);
 
     // 返回成功页面 HTML
     return `
@@ -365,7 +367,10 @@ export class OidcService {
     if (provider) {
       Object.assign(provider, providerData);
     } else {
-      provider = this.providerRepository.create(providerData);
+      provider = this.providerRepository.create({
+        guid: uuidv4(),
+        ...providerData,
+      });
     }
 
     return this.providerRepository.save(provider);
@@ -421,7 +426,7 @@ export class OidcService {
    */
   private async generateTokenForUser(user: User, deviceId?: string, deviceUuid?: string): Promise<string> {
     const payload = {
-      sub: user.id,
+      sub: user.guid,
       username: user.username,
       email: user.email,
       isAdmin: user.isAdmin,
@@ -435,7 +440,8 @@ export class OidcService {
     expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
 
     const userToken = this.userTokenRepository.create({
-      userId: user.id,
+      guid: uuidv4(),
+      userGuid: user.guid,
       token,
       deviceId,
       deviceUuid,

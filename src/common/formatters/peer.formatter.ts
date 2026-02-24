@@ -30,7 +30,7 @@ export interface PeerResponse {
 export interface PeerAdminResponse {
   id: string;
   uuid: string;
-  user_id: number | null;
+  user_guid: string | null;
   device_group_guid: string | null;
   device_group_name: string;
   ver: number;
@@ -88,11 +88,11 @@ export class PeerFormatter {
   static formatList(
     peers: Peer[],
     sysinfoMap: Map<string, Sysinfo>,
-    userMap: Map<number, User>,
+    userMap: Map<string, User>,
   ): PeerResponse[] {
     return peers.map(peer => {
       const sysinfo = sysinfoMap.get(peer.uuid);
-      const user = peer.userId ? userMap.get(peer.userId) : null;
+      const user = peer.userGuid ? userMap.get(peer.userGuid) : null;
       return this.format(peer, sysinfo, user);
     });
   }
@@ -106,7 +106,7 @@ export class PeerFormatter {
     return {
       id: peer.id,
       uuid: peer.uuid,
-      user_id: peer.userId,
+      user_guid: peer.userGuid,
       device_group_guid: peer.deviceGroupGuid,
       device_group_name: peer.deviceGroup?.name || '',
       ver: peer.ver,

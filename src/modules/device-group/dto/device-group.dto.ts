@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, IsInt, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsInt, IsUUID, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -51,9 +51,8 @@ export class AddDeviceGroupUserPermissionDto {
   @IsUUID()
   deviceGroupGuid: string;
 
-  @IsNumber()
-  @IsInt()
-  userId: number;
+  @IsUUID()
+  userGuid: string;
 }
 
 /**
@@ -63,6 +62,7 @@ export class SetDeviceGroupUsersDto {
   @IsUUID()
   deviceGroupGuid: string;
 
-  @IsNumber({}, { each: true })
-  userIds: number[];
+  @IsArray()
+  @IsUUID('4', { each: true })
+  userGuids: string[];
 }

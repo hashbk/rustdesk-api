@@ -4,7 +4,7 @@ import { User } from '../../modules/user/entities/user.entity';
  * 用户响应格式化接口
  */
 export interface UserResponse {
-  id?: number;
+  guid?: string;
   name: string;
   email?: string;
   note?: string;
@@ -23,7 +23,7 @@ export class UserFormatter {
   /**
    * 格式化单个用户
    */
-  static format(user: User, options: { includeId?: boolean; includeDates?: boolean } = {}): UserResponse {
+  static format(user: User, options: { includeGuid?: boolean; includeDates?: boolean } = {}): UserResponse {
     const response: UserResponse = {
       name: user.username,
       email: user.email || undefined,
@@ -32,8 +32,8 @@ export class UserFormatter {
       is_admin: user.isAdmin,
     };
 
-    if (options.includeId) {
-      response.id = user.id;
+    if (options.includeGuid) {
+      response.guid = user.guid;
     }
 
     if (user.thirdAuthType) {
@@ -51,7 +51,7 @@ export class UserFormatter {
   /**
    * 格式化用户列表
    */
-  static formatList(users: User[], options: { includeId?: boolean; includeDates?: boolean } = {}): UserResponse[] {
+  static formatList(users: User[], options: { includeGuid?: boolean; includeDates?: boolean } = {}): UserResponse[] {
     return users.map(user => this.format(user, options));
   }
 
@@ -75,7 +75,7 @@ export class UserFormatter {
    */
   static formatForAdmin(user: User): UserResponse {
     return {
-      id: user.id,
+      guid: user.guid,
       name: user.username,
       email: user.email,
       note: user.note,

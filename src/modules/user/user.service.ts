@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException,
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { User, UserStatus } from './entities/user.entity';
 import { Peer, Sysinfo } from '../../common/entities';
 import { UpdateUserDto, AdminUpdateUserDto } from './dto/user.dto';
@@ -20,10 +21,10 @@ export class UserService {
   ) {}
 
   /**
-   * 根据 ID 获取用户
+   * 根据 GUID 获取用户
    */
-  async findById(id: number): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+  async findByGuid(guid: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { guid } });
   }
 
   /**
@@ -45,8 +46,8 @@ export class UserService {
    */
   async findAll(page: number = 1, limit: number = 20): Promise<{ users: User[]; total: number }> {
     const [users, total] = await this.userRepository.findAndCount({
-      select: ['id', 'username', 'email', 'note', 'status', 'isAdmin', 'createdAt', 'updatedAt'],
-      order: { id: 'ASC' },
+      select: ['guid', 'username', 'email', 'note', 'status', 'isAdmin', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -57,10 +58,10 @@ export class UserService {
   /**
    * 更新用户信息
    */
-  async updateUser(userId: number, updateDto: UpdateUserDto): Promise<User> {
+  async updateUser(userGuid: string, updateDto: UpdateUserDto): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'username', 'email', 'password', 'note', 'status', 'isAdmin'],
+      where: { guid: userGuid },
+      select: ['guid', 'username', 'email', 'password', 'note', 'status', 'isAdmin'],
     });
 
     if (!user) {
@@ -108,9 +109,9 @@ export class UserService {
   /**
    * 管理员更新用户信息
    */
-  async adminUpdateUser(userId: number, updateDto: AdminUpdateUserDto): Promise<User> {
+  async adminUpdateUser(userGuid: string, updateDto: AdminUpdateUserDto): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id: userId },
+      where: { guid: userGuid },
     });
 
     if (!user) {
@@ -152,9 +153,9 @@ export class UserService {
   /**
    * 删除用户（管理员）
    */
-  async deleteUser(userId: number): Promise<void> {
+  async deleteUser(userGuid: string): Promise<void> {
     const user = await this.userRepository.findOne({
-      where: { id: userId },
+      where: { guid: userGuid },
     });
 
     if (!user) {
@@ -167,10 +168,10 @@ export class UserService {
   /**
    * 获取用户设备列表
    */
-  async getUserDevices(userId: number): Promise<any[]> {
+  async getUserDevices(userGuid: string): Promise<any[]> {
     // 从 peers 表查询属于该用户的设备
     const peers = await this.peerRepository.find({
-      where: { userId },
+      where: { userGuid },
       order: { updatedAt: 'DESC' },
     });
 
@@ -199,19 +200,19 @@ export class UserService {
   }
 
   /**
-   * 删除用户设备（将设备的 userId 设为 null）
+   * 删除用户设备（将设备的 userGuid 设为 null）
    */
-  async deleteUserDevice(userId: number, deviceUuid: string): Promise<void> {
+  async deleteUserDevice(userGuid: string, deviceUuid: string): Promise<void> {
     const peer = await this.peerRepository.findOne({
-      where: { uuid: deviceUuid, userId },
+      where: { uuid: deviceUuid, userGuid },
     });
 
     if (!peer) {
       throw new NotFoundException('设备不存在');
     }
 
-    // 将设备的 userId 设为 null，表示解除绑定
-    peer.userId = null as any;
+    // 将设备的 userGuid 设为 null，表示解除绑定
+    peer.userGuid = null as any;
     await this.peerRepository.save(peer);
   }
 
@@ -228,6 +229,7 @@ export class UserService {
     }
 
     const user = this.userRepository.create({
+      guid: uuidv4(),
       username,
       email,
       password: await bcrypt.hash(password, 10),

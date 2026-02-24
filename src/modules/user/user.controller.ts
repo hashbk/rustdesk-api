@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto, AdminUpdateUserDto } from './dto/user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -11,24 +11,24 @@ export class UserController {
   // 注意：@Get('users') 已移至 device-group.controller.ts，用于设备组功能
   // 管理员获取所有用户列表请使用 /api/users
 
-  @Get('users/:id')
+  @Get('users/:guid')
   async getUser(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('id') currentUserId: number,
+    @Param('guid') guid: string,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以查看用户详情
-    if (!isAdmin && id !== currentUserId) {
+    if (!isAdmin && guid !== currentUserGuid) {
       return { error: '无权限访问' };
     }
 
-    const user = await this.userService.findById(id);
+    const user = await this.userService.findByGuid(guid);
     if (!user) {
       return { error: '用户不存在' };
     }
 
     return {
-      id: user.id,
+      guid: user.guid,
       name: user.username,
       email: user.email,
       note: user.note,
@@ -39,21 +39,21 @@ export class UserController {
     };
   }
 
-  @Put('users/:id')
+  @Put('users/:guid')
   async updateUser(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('guid') guid: string,
     @Body() updateDto: UpdateUserDto,
-    @CurrentUser('id') currentUserId: number,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以更新用户信息
-    if (!isAdmin && id !== currentUserId) {
+    if (!isAdmin && guid !== currentUserGuid) {
       return { error: '无权限访问' };
     }
 
-    const user = await this.userService.updateUser(id, updateDto);
+    const user = await this.userService.updateUser(guid, updateDto);
     return {
-      id: user.id,
+      guid: user.guid,
       name: user.username,
       email: user.email,
       note: user.note,
@@ -62,10 +62,10 @@ export class UserController {
     };
   }
 
-  @Delete('users/:id')
+  @Delete('users/:guid')
   async deleteUser(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('id') currentUserId: number,
+    @Param('guid') guid: string,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员可以删除用户
@@ -74,19 +74,19 @@ export class UserController {
     }
 
     // 不能删除自己
-    if (id === currentUserId) {
+    if (guid === currentUserGuid) {
       return { error: '不能删除自己' };
     }
 
-    await this.userService.deleteUser(id);
+    await this.userService.deleteUser(guid);
     return { message: '删除成功' };
   }
 
-  @Put('users/:id/status')
+  @Put('users/:guid/status')
   async updateUserStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('guid') guid: string,
     @Body('status') status: UserStatus,
-    @CurrentUser('id') currentUserId: number,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员可以修改用户状态
@@ -95,29 +95,29 @@ export class UserController {
     }
 
     // 不能修改自己的状态
-    if (id === currentUserId) {
+    if (guid === currentUserGuid) {
       return { error: '不能修改自己的状态' };
     }
 
-    const user = await this.userService.adminUpdateUser(id, { status });
+    const user = await this.userService.adminUpdateUser(guid, { status });
     return {
-      id: user.id,
+      guid: user.guid,
       status: user.status,
     };
   }
 
-  @Get('users/:id/devices')
+  @Get('users/:guid/devices')
   async getUserDevices(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('id') currentUserId: number,
+    @Param('guid') guid: string,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以查看设备列表
-    if (!isAdmin && id !== currentUserId) {
+    if (!isAdmin && guid !== currentUserGuid) {
       return { error: '无权限访问' };
     }
 
-    const devices = await this.userService.getUserDevices(id);
+    const devices = await this.userService.getUserDevices(guid);
     return devices.map(device => ({
       uuid: device.uuid,
       id: device.id,
@@ -131,19 +131,19 @@ export class UserController {
     }));
   }
 
-  @Delete('users/:id/devices/:deviceUuid')
+  @Delete('users/:guid/devices/:deviceUuid')
   async deleteUserDevice(
-    @Param('id', ParseIntPipe) userId: number,
+    @Param('guid') userGuid: string,
     @Param('deviceUuid') deviceUuid: string,
-    @CurrentUser('id') currentUserId: number,
+    @CurrentUser('guid') currentUserGuid: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以删除设备
-    if (!isAdmin && userId !== currentUserId) {
+    if (!isAdmin && userGuid !== currentUserGuid) {
       return { error: '无权限访问' };
     }
 
-    await this.userService.deleteUserDevice(userId, deviceUuid);
+    await this.userService.deleteUserDevice(userGuid, deviceUuid);
     return { message: '删除成功' };
   }
 }

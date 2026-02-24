@@ -34,7 +34,7 @@ export class DeviceGroupService {
    * 管理员可以看到所有设备组
    */
   async getAccessibleDeviceGroups(
-    userId: number,
+    userGuid: string,
     query: DeviceGroupQueryDto,
     isAdmin: boolean = false,
   ): Promise<{ data: { name: string }[]; total: number }> {
@@ -60,7 +60,7 @@ export class DeviceGroupService {
     const queryBuilder = this.deviceGroupRepository
       .createQueryBuilder('dg')
       .innerJoin('device_group_user_permissions', 'udgp', 'udgp.deviceGroupGuid = dg.guid')
-      .where('udgp.userId = :userId', { userId })
+      .where('udgp.userGuid = :userGuid', { userGuid })
       .select(['dg.guid', 'dg.name'])
       .orderBy('dg.name', 'ASC')
       .skip(skip)
@@ -157,14 +157,14 @@ export class DeviceGroupService {
   /**
    * 获取设备组的用户列表
    */
-  async getDeviceGroupUsers(guid: string): Promise<{ userId: number; username: string }[]> {
+  async getDeviceGroupUsers(guid: string): Promise<{ userGuid: string; username: string }[]> {
     const permissions = await this.deviceGroupUserPermissionRepository.find({
       where: { deviceGroupGuid: guid },
       relations: ['user'],
     });
 
     return permissions.map(p => ({
-      userId: p.userId,
+      userGuid: p.userGuid,
       username: p.user?.username || '',
     }));
   }
@@ -180,14 +180,14 @@ export class DeviceGroupService {
     }
 
     // 检查用户是否存在
-    const user = await this.userRepository.findOne({ where: { id: dto.userId } });
+    const user = await this.userRepository.findOne({ where: { guid: dto.userGuid } });
     if (!user) {
       throw new NotFoundException('用户不存在');
     }
 
     // 检查权限是否已存在
     const existing = await this.deviceGroupUserPermissionRepository.findOne({
-      where: { deviceGroupGuid: dto.deviceGroupGuid, userId: dto.userId },
+      where: { deviceGroupGuid: dto.deviceGroupGuid, userGuid: dto.userGuid },
     });
     if (existing) {
       return; // 权限已存在，无需重复添加
@@ -200,10 +200,10 @@ export class DeviceGroupService {
   /**
    * 移除用户设备组权限
    */
-  async removeUserPermission(deviceGroupGuid: string, userId: number): Promise<void> {
+  async removeUserPermission(deviceGroupGuid: string, userGuid: string): Promise<void> {
     await this.deviceGroupUserPermissionRepository.delete({
       deviceGroupGuid,
-      userId,
+      userGuid,
     });
   }
 
@@ -223,10 +223,10 @@ export class DeviceGroupService {
     });
 
     // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds.map(userId => ({
+    if (dto.userGuids.length > 0) {
+      const permissions = dto.userGuids.map(userGuid => ({
         deviceGroupGuid: dto.deviceGroupGuid,
-        userId,
+        userGuid,
       }));
       await this.deviceGroupUserPermissionRepository.insert(permissions);
     }
@@ -237,12 +237,12 @@ export class DeviceGroupService {
   /**
    * 获取用户有权访问的其他用户列表
    */
-  async getAccessibleTargetUsers(userId: number): Promise<number[]> {
+  async getAccessibleTargetUsers(userGuid: string): Promise<string[]> {
     const permissions = await this.userUserPermissionRepository.find({
-      where: { userId },
-      select: ['targetUserId'],
+      where: { userGuid },
+      select: ['targetUserGuid'],
     });
-    return permissions.map(p => p.targetUserId);
+    return permissions.map(p => p.targetUserGuid);
   }
 
   /**
@@ -251,21 +251,21 @@ export class DeviceGroupService {
   async addUserUserPermission(dto: AddUserUserPermissionDto): Promise<void> {
     // 检查用户是否存在
     const [user, targetUser] = await Promise.all([
-      this.userRepository.findOne({ where: { id: dto.userId } }),
-      this.userRepository.findOne({ where: { id: dto.targetUserId } }),
+      this.userRepository.findOne({ where: { guid: dto.userGuid } }),
+      this.userRepository.findOne({ where: { guid: dto.targetUserGuid } }),
     ]);
     if (!user || !targetUser) {
       throw new NotFoundException('用户不存在');
     }
 
     // 不能给自己授权
-    if (dto.userId === dto.targetUserId) {
+    if (dto.userGuid === dto.targetUserGuid) {
       throw new BadRequestException('不能给自己授权');
     }
 
     // 检查权限是否已存在
     const existing = await this.userUserPermissionRepository.findOne({
-      where: { userId: dto.userId, targetUserId: dto.targetUserId },
+      where: { userGuid: dto.userGuid, targetUserGuid: dto.targetUserGuid },
     });
     if (existing) {
       return; // 权限已存在
@@ -278,10 +278,10 @@ export class DeviceGroupService {
   /**
    * 移除用户间权限
    */
-  async removeUserUserPermission(userId: number, targetUserId: number): Promise<void> {
+  async removeUserUserPermission(userGuid: string, targetUserGuid: string): Promise<void> {
     await this.userUserPermissionRepository.delete({
-      userId,
-      targetUserId,
+      userGuid,
+      targetUserGuid,
     });
   }
 
@@ -290,23 +290,23 @@ export class DeviceGroupService {
    */
   async setUserPermissions(dto: SetUserPermissionsDto): Promise<void> {
     // 检查目标用户是否存在
-    const targetUser = await this.userRepository.findOne({ where: { id: dto.targetUserId } });
+    const targetUser = await this.userRepository.findOne({ where: { guid: dto.targetUserGuid } });
     if (!targetUser) {
       throw new NotFoundException('目标用户不存在');
     }
 
     // 删除现有关联
     await this.userUserPermissionRepository.delete({
-      targetUserId: dto.targetUserId,
+      targetUserGuid: dto.targetUserGuid,
     });
 
     // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds
-        .filter(userId => userId !== dto.targetUserId) // 排除自己
-        .map(userId => ({
-          userId,
-          targetUserId: dto.targetUserId,
+    if (dto.userGuids.length > 0) {
+      const permissions = dto.userGuids
+        .filter(userGuid => userGuid !== dto.targetUserGuid) // 排除自己
+        .map(userGuid => ({
+          userGuid,
+          targetUserGuid: dto.targetUserGuid,
         }));
       if (permissions.length > 0) {
         await this.userUserPermissionRepository.insert(permissions);
@@ -320,7 +320,7 @@ export class DeviceGroupService {
    * 管理员可以看到所有用户
    */
   async getAccessibleUsers(
-    userId: number,
+    userGuid: string,
     query: { current: number; pageSize: number; status: string },
     isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
@@ -353,18 +353,18 @@ export class DeviceGroupService {
       .createQueryBuilder('user')
       .where('user.status = :status', { status: parseInt(status) || UserStatus.ACTIVE })
       .andWhere(
-        `(user.id = :userId 
+        `(user.guid = :userGuid 
           OR EXISTS (
             SELECT 1 FROM user_user_permissions uup 
-            WHERE uup.userId = :userId AND uup.targetUserId = user.id
+            WHERE uup.userGuid = :userGuid AND uup.targetUserGuid = user.guid
           )
           OR EXISTS (
             SELECT 1 FROM peers p 
             INNER JOIN device_group_user_permissions udgp ON p.deviceGroupGuid = udgp.deviceGroupGuid
-            WHERE udgp.userId = :userId AND p.userId = user.id
+            WHERE udgp.userGuid = :userGuid AND p.userGuid = user.guid
           )
         )`,
-        { userId },
+        { userGuid },
       )
       .orderBy('user.username', 'ASC')
       .skip(skip)

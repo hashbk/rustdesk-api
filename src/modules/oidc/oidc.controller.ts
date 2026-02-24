@@ -100,7 +100,7 @@ export class OidcController {
   async getAllProviders() {
     const providers = await this.oidcService.getAllProviders();
     return providers.map(p => ({
-      id: p.id,
+      guid: p.guid,
       name: p.name,
       issuer: p.issuer,
       client_id: p.clientId,
@@ -121,7 +121,7 @@ export class OidcController {
   async createProvider(@Body() providerData: OidcProviderDto) {
     const provider = await this.oidcService.upsertProvider(providerData);
     return {
-      id: provider.id,
+      guid: provider.guid,
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,
@@ -144,7 +144,7 @@ export class OidcController {
     });
 
     return {
-      id: provider.id,
+      guid: provider.guid,
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,

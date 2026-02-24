@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsInt, IsUUID, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -29,23 +29,21 @@ export class UserQueryDto {
  * 添加用户间权限DTO
  */
 export class AddUserUserPermissionDto {
-  @IsNumber()
-  @IsInt()
-  userId: number;         // 授权用户ID
+  @IsUUID()
+  userGuid: string;         // 授权用户唯一标识符
 
-  @IsNumber()
-  @IsInt()
-  targetUserId: number;   // 目标用户ID
+  @IsUUID()
+  targetUserGuid: string;   // 目标用户唯一标识符
 }
 
 /**
  * 批量设置用户权限DTO
  */
 export class SetUserPermissionsDto {
-  @IsNumber()
-  @IsInt()
-  targetUserId: number;   // 目标用户ID
+  @IsUUID()
+  targetUserGuid: string;   // 目标用户唯一标识符
 
-  @IsNumber({}, { each: true })
-  userIds: number[];      // 授权用户ID列表
+  @IsArray()
+  @IsUUID('4', { each: true })
+  userGuids: string[];      // 授权用户唯一标识符列表
 }

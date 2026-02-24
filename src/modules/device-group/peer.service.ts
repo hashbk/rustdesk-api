@@ -37,7 +37,7 @@ export class PeerService {
    *    - 用户有权访问的其他用户的设备
    */
   async getAccessiblePeers(
-    userId: number,
+    userGuid: string,
     query: PeerQueryDto,
     isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
@@ -57,19 +57,19 @@ export class PeerService {
       queryBuilder.where(
         `(
           -- 用户自己的设备
-          peer.userId = :userId
+          peer.userGuid = :userGuid
           -- 用户有权访问的设备组中的设备
           OR EXISTS (
             SELECT 1 FROM device_group_user_permissions udgp
-            WHERE udgp.userId = :userId AND udgp.deviceGroupGuid = peer.deviceGroupGuid
+            WHERE udgp.userGuid = :userGuid AND udgp.deviceGroupGuid = peer.deviceGroupGuid
           )
           -- 用户有权访问的其他用户的设备
           OR EXISTS (
             SELECT 1 FROM user_user_permissions uup
-            WHERE uup.userId = :userId AND uup.targetUserId = peer.userId
+            WHERE uup.userGuid = :userGuid AND uup.targetUserGuid = peer.userGuid
           )
         )`,
-        { userId },
+        { userGuid },
       );
     }
 
@@ -96,20 +96,20 @@ export class PeerService {
 
     const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
-    // 获取所有相关的用户ID
-    const userIds = [...new Set(peers.map(p => p.userId).filter(id => id != null))];
+    // 获取所有相关的用户GUID
+    const userGuids = [...new Set(peers.map(p => p.userGuid).filter(guid => guid != null))];
     
     // 批量查询用户信息
-    const users = userIds.length > 0
-      ? await this.userRepository.find({ where: { id: In(userIds) } })
+    const users = userGuids.length > 0
+      ? await this.userRepository.find({ where: { guid: In(userGuids) } })
       : [];
-    const userMap = new Map(users.map(u => [u.id, u]));
+    const userMap = new Map(users.map(u => [u.guid, u]));
 
     // 转换响应格式
     const data = peers.map(peer => {
       const sysinfo = sysinfoMap.get(peer.uuid);
       const isOnline = peer.updatedAt > oneMinuteAgo;
-      const user = peer.userId ? userMap.get(peer.userId) : null;
+      const user = peer.userGuid ? userMap.get(peer.userGuid) : null;
 
       return {
         id: peer.id,
@@ -196,8 +196,8 @@ export class PeerService {
   async deletePeer(uuid: string): Promise<void> {
     const peer = await this.findByUuid(uuid);
     if (peer) {
-      // 将设备的 userId 和 deviceGroupGuid 设为 null，表示解除绑定
-      peer.userId = null as any;
+      // 将设备的 userGuid 和 deviceGroupGuid 设为 null，表示解除绑定
+      peer.userGuid = null as any;
       peer.deviceGroupGuid = null as any;
       await this.peerRepository.save(peer);
     }

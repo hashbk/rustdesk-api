@@ -71,6 +71,7 @@ export class AuthService {
 
     // 创建用户
     const user = this.userRepository.create({
+      guid: uuidv4(),
       username,
       email,
       password: hashedPassword,
@@ -174,7 +175,7 @@ export class AuthService {
 
     // 创建设备记录
     if (id || uuid) {
-      await this.createOrUpdateDevice(user.id, id, uuid, deviceInfo);
+      await this.createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
     // 生成 Token
@@ -210,12 +211,13 @@ export class AuthService {
     expiresAt.setMinutes(expiresAt.getMinutes() + this.VERIFICATION_CODE_EXPIRY_MINUTES);
 
     // 删除该用户之前的验证会话
-    await this.verificationSessionRepository.delete({ userId: user.id, used: false });
+    await this.verificationSessionRepository.delete({ userGuid: user.guid, used: false });
 
     // 创建验证会话
     const session = this.verificationSessionRepository.create({
+      guid: uuidv4(),
       secret,
-      userId: user.id,
+      userGuid: user.guid,
       email: user.email,
       code,
       expiresAt,
@@ -283,7 +285,7 @@ export class AuthService {
       .addSelect('user.thirdAuthType')
       .getOne();
 
-    if (!user || user.id !== session.userId) {
+    if (!user || user.guid !== session.userGuid) {
       throw new UnauthorizedException('用户信息不匹配');
     }
 
@@ -298,7 +300,7 @@ export class AuthService {
 
     // 创建设备记录
     if (id || uuid) {
-      await this.createOrUpdateDevice(user.id, id, uuid, deviceInfo);
+      await this.createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
     // 生成 Token
@@ -351,6 +353,7 @@ export class AuthService {
       // 自动创建用户
       const isEmail = type === 'email_code';
       user = this.userRepository.create({
+        guid: uuidv4(),
         username: username.replace(/[@.]/g, '_'),
         email: isEmail ? username : '',
         password: await bcrypt.hash(uuidv4(), 10),
@@ -361,7 +364,7 @@ export class AuthService {
 
     // 创建设备记录
     if (id || uuid) {
-      await this.createOrUpdateDevice(user.id, id, uuid, deviceInfo);
+      await this.createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
     // 生成 Token
@@ -423,7 +426,7 @@ export class AuthService {
 
     // 创建设备记录
     if (id || uuid) {
-      await this.createOrUpdateDevice(user.id, id, uuid, deviceInfo);
+      await this.createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
     // 生成 Token
@@ -463,10 +466,10 @@ export class AuthService {
   /**
    * 获取当前用户信息
    */
-  async getCurrentUser(userId: number, currentUserDto?: CurrentUserDto): Promise<any> {
+  async getCurrentUser(userGuid: string, currentUserDto?: CurrentUserDto): Promise<any> {
     const user = await this.userRepository
       .createQueryBuilder('user')
-      .where('user.id = :id', { id: userId })
+      .where('user.guid = :guid', { guid: userGuid })
       .addSelect('user.info')
       .addSelect('user.thirdAuthType')
       .getOne();
@@ -490,13 +493,13 @@ export class AuthService {
   /**
    * 用户登出
    */
-  async logout(userId: number, logoutDto: LogoutDto, token?: string | null): Promise<void> {
+  async logout(userGuid: string, logoutDto: LogoutDto, token?: string | null): Promise<void> {
     const { id, uuid } = logoutDto;
 
     // 优先撤销当前 token
     if (token) {
       await this.tokenRepository.update(
-        { userId, token, isRevoked: false },
+        { userGuid, token, isRevoked: false },
         { isRevoked: true },
       );
     }
@@ -506,7 +509,7 @@ export class AuthService {
       // 撤销该设备的所有 token
       await this.tokenRepository.update(
         {
-          userId,
+          userGuid,
           deviceId: id,
           deviceUuid: uuid,
           isRevoked: false,
@@ -517,13 +520,13 @@ export class AuthService {
       // 解除设备与用户的绑定（安全关键：防止退出登录后设备仍关联用户）
       if (uuid) {
         const peer = await this.peerRepository.findOne({
-          where: { uuid, userId },
+          where: { uuid, userGuid },
         });
 
         if (peer) {
-          peer.userId = null as any;
+          peer.userGuid = null as any;
           await this.peerRepository.save(peer);
-          this.logger.log(`用户 ${userId} 退出登录，已解除设备 ${uuid} 的绑定`);
+          this.logger.log(`用户 ${userGuid} 退出登录，已解除设备 ${uuid} 的绑定`);
         }
       }
     }
@@ -556,7 +559,7 @@ export class AuthService {
    */
   private async generateToken(user: User, deviceId?: string, deviceUuid?: string): Promise<string> {
     const payload: JwtPayload = {
-      sub: user.id,
+      sub: user.guid,
       username: user.username,
       email: user.email,
       isAdmin: user.isAdmin,
@@ -570,7 +573,8 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
 
     const userToken = this.tokenRepository.create({
-      userId: user.id,
+      guid: uuidv4(),
+      userGuid: user.guid,
       token,
       deviceId,
       deviceUuid,
@@ -586,7 +590,7 @@ export class AuthService {
    * 创建或更新设备记录（绑定设备到用户）
    */
   private async createOrUpdateDevice(
-    userId: number,
+    userGuid: string,
     deviceId?: string,
     deviceUuid?: string,
     deviceInfo?: Record<string, any>,
@@ -599,8 +603,8 @@ export class AuthService {
     });
 
     if (peer) {
-      // 更新 peer 的 userId，绑定设备到用户
-      peer.userId = userId;
+      // 更新 peer 的 userGuid，绑定设备到用户
+      peer.userGuid = userGuid;
       await this.peerRepository.save(peer);
     }
     // 如果 peer 不存在，设备会在心跳时自动创建

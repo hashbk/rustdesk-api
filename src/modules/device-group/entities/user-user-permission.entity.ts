@@ -1,35 +1,35 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, PrimaryColumn, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
  * 用户间权限实体
  * 管理用户对其他用户设备的访问权限
- * 使用复合主键 (userId, targetUserId)
+ * 使用复合主键 (userGuid, targetUserGuid)
  */
 @Entity('user_user_permissions')
 export class UserUserPermission {
   /**
-   * 授权用户ID
+   * 授权用户唯一标识符
    * 拥有访问权限的用户
    */
   @PrimaryColumn()
   @Index()
-  userId: number;
+  userGuid: string;
 
   /**
-   * 目标用户ID
+   * 目标用户唯一标识符
    * 被授权访问的用户（其设备可被访问）
    */
   @PrimaryColumn()
   @Index()
-  targetUserId: number;
+  targetUserGuid: string;
 
   /**
    * 关联的授权用户实体
    * 多对一关系，关联到 User
    */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'userGuid' })
   user: User;
 
   /**
@@ -37,7 +37,7 @@ export class UserUserPermission {
    * 多对一关系，关联到 User
    */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'targetUserId' })
+  @JoinColumn({ name: 'targetUserGuid' })
   targetUser: User;
 
   /**

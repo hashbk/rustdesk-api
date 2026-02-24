@@ -25,7 +25,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('guid') userGuid: string,
     @Body() logoutDto: LogoutDto,
     @Req() req: Request,
   ) {
@@ -33,16 +33,16 @@ export class AuthController {
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
     
-    await this.authService.logout(userId, logoutDto, token);
+    await this.authService.logout(userGuid, logoutDto, token);
     return { message: '登出成功' };
   }
 
   @Post('currentUser')
   @HttpCode(HttpStatus.OK)
   async getCurrentUser(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('guid') userGuid: string,
     @Body() currentUserDto: CurrentUserDto,
   ) {
-    return this.authService.getCurrentUser(userId, currentUserDto);
+    return this.authService.getCurrentUser(userGuid, currentUserDto);
   }
 }

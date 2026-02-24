@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { User, UserStatus } from '../modules/user/entities/user.entity';
 import { OidcProvider } from '../modules/oidc/entities/oidc-provider.entity';
 import { OidcAuthState } from '../modules/oidc/entities/oidc-auth-state.entity';
@@ -33,10 +34,10 @@ export class DatabaseInitService implements OnModuleInit {
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
 
-      // 检查是否使用默认密码
-      if (!process.env.ADMIN_PASSWORD) {
-        this.logger.warn('WARNING: Using default admin password "admin123". Please set ADMIN_PASSWORD environment variable in production!');
-      }
+    // 检查是否使用默认密码
+    if (!process.env.ADMIN_PASSWORD) {
+      this.logger.warn('WARNING: Using default admin password "admin123". Please set ADMIN_PASSWORD environment variable in production!');
+    }
 
     const existingAdmin = await this.userRepository.findOne({
       where: { username: adminUsername },
@@ -44,6 +45,7 @@ export class DatabaseInitService implements OnModuleInit {
 
     if (!existingAdmin) {
       const admin = this.userRepository.create({
+        guid: uuidv4(),
         username: adminUsername,
         email: adminEmail,
         password: await bcrypt.hash(adminPassword, 10),
@@ -66,6 +68,7 @@ export class DatabaseInitService implements OnModuleInit {
   private async createDefaultOidcProviders() {
     const defaultProviders = [
       {
+        guid: uuidv4(),
         name: 'google',
         issuer: 'https://accounts.google.com',
         clientId: '',
@@ -78,6 +81,7 @@ export class DatabaseInitService implements OnModuleInit {
         priority: 1,
       },
       {
+        guid: uuidv4(),
         name: 'github',
         issuer: 'https://github.com',
         clientId: '',
