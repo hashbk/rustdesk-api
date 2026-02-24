@@ -42,8 +42,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const { sub, username, email, isAdmin } = payload;
 
+    // 保持原有字段名 id，实际值是用户的 guid
     return {
-      guid: sub,
+      id: sub,  // 保持原有字段名 id，值为用户的 guid
       username,
       email,
       isAdmin,

@@ -11,24 +11,24 @@ export class UserController {
   // 注意：@Get('users') 已移至 device-group.controller.ts，用于设备组功能
   // 管理员获取所有用户列表请使用 /api/users
 
-  @Get('users/:guid')
+  @Get('users/:id')
   async getUser(
-    @Param('guid') guid: string,
-    @CurrentUser('guid') currentUserGuid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以查看用户详情
-    if (!isAdmin && guid !== currentUserGuid) {
+    if (!isAdmin && id !== currentUserId) {
       return { error: '无权限访问' };
     }
 
-    const user = await this.userService.findByGuid(guid);
+    const user = await this.userService.findByGuid(id);
     if (!user) {
       return { error: '用户不存在' };
     }
 
     return {
-      guid: user.guid,
+      id: user.guid,  // 响应字段名保持 id，值为 guid
       name: user.username,
       email: user.email,
       note: user.note,
@@ -39,21 +39,21 @@ export class UserController {
     };
   }
 
-  @Put('users/:guid')
+  @Put('users/:id')
   async updateUser(
-    @Param('guid') guid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
     @Body() updateDto: UpdateUserDto,
-    @CurrentUser('guid') currentUserGuid: string,
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以更新用户信息
-    if (!isAdmin && guid !== currentUserGuid) {
+    if (!isAdmin && id !== currentUserId) {
       return { error: '无权限访问' };
     }
 
-    const user = await this.userService.updateUser(guid, updateDto);
+    const user = await this.userService.updateUser(id, updateDto);
     return {
-      guid: user.guid,
+      id: user.guid,  // 响应字段名保持 id，值为 guid
       name: user.username,
       email: user.email,
       note: user.note,
@@ -62,10 +62,10 @@ export class UserController {
     };
   }
 
-  @Delete('users/:guid')
+  @Delete('users/:id')
   async deleteUser(
-    @Param('guid') guid: string,
-    @CurrentUser('guid') currentUserGuid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员可以删除用户
@@ -74,19 +74,19 @@ export class UserController {
     }
 
     // 不能删除自己
-    if (guid === currentUserGuid) {
+    if (id === currentUserId) {
       return { error: '不能删除自己' };
     }
 
-    await this.userService.deleteUser(guid);
+    await this.userService.deleteUser(id);
     return { message: '删除成功' };
   }
 
-  @Put('users/:guid/status')
+  @Put('users/:id/status')
   async updateUserStatus(
-    @Param('guid') guid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
     @Body('status') status: UserStatus,
-    @CurrentUser('guid') currentUserGuid: string,
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员可以修改用户状态
@@ -95,29 +95,29 @@ export class UserController {
     }
 
     // 不能修改自己的状态
-    if (guid === currentUserGuid) {
+    if (id === currentUserId) {
       return { error: '不能修改自己的状态' };
     }
 
-    const user = await this.userService.adminUpdateUser(guid, { status });
+    const user = await this.userService.adminUpdateUser(id, { status });
     return {
-      guid: user.guid,
+      id: user.guid,  // 响应字段名保持 id，值为 guid
       status: user.status,
     };
   }
 
-  @Get('users/:guid/devices')
+  @Get('users/:id/devices')
   async getUserDevices(
-    @Param('guid') guid: string,
-    @CurrentUser('guid') currentUserGuid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以查看设备列表
-    if (!isAdmin && guid !== currentUserGuid) {
+    if (!isAdmin && id !== currentUserId) {
       return { error: '无权限访问' };
     }
 
-    const devices = await this.userService.getUserDevices(guid);
+    const devices = await this.userService.getUserDevices(id);
     return devices.map(device => ({
       uuid: device.uuid,
       id: device.id,
@@ -131,19 +131,19 @@ export class UserController {
     }));
   }
 
-  @Delete('users/:guid/devices/:deviceUuid')
+  @Delete('users/:id/devices/:deviceUuid')
   async deleteUserDevice(
-    @Param('guid') userGuid: string,
+    @Param('id') userId: string,  // 保持原有字段名 id
     @Param('deviceUuid') deviceUuid: string,
-    @CurrentUser('guid') currentUserGuid: string,
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
   ) {
     // 只有管理员或用户本人可以删除设备
-    if (!isAdmin && userGuid !== currentUserGuid) {
+    if (!isAdmin && userId !== currentUserId) {
       return { error: '无权限访问' };
     }
 
-    await this.userService.deleteUserDevice(userGuid, deviceUuid);
+    await this.userService.deleteUserDevice(userId, deviceUuid);
     return { message: '删除成功' };
   }
 }

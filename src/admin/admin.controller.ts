@@ -127,15 +127,16 @@ export class AdminController {
   /**
    * 设置设备组的用户权限
    * POST /api/admin/device-groups/:guid/users
+   * 请求字段名保持 userIds
    */
   @Post('device-groups/:guid/users')
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
-    @Body() body: { userGuids: string[] },
+    @Body() body: { userIds: string[] },  // 保持原有字段名 userIds
   ) {
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
-      userGuids: body.userGuids,
+      userIds: body.userIds,
     });
     return { message: '设置成功' };
   }
@@ -162,7 +163,7 @@ export class AdminController {
       peers: peers.map(p => ({
         id: p.id,
         uuid: p.uuid,
-        user_guid: p.userGuid,
+        user_id: p.userGuid,  // 响应字段名保持 user_id
         device_group_guid: p.deviceGroupGuid,
         device_group_name: p.deviceGroup?.name || '',
         ver: p.ver,
@@ -224,14 +225,15 @@ export class AdminController {
 
   /**
    * 删除用户设备组权限
-   * DELETE /api/admin/device-group-permissions/:deviceGroupGuid/:userGuid
+   * DELETE /api/admin/device-group-permissions/:deviceGroupGuid/:userId
+   * 路由参数保持 userId
    */
-  @Delete('device-group-permissions/:deviceGroupGuid/:userGuid')
+  @Delete('device-group-permissions/:deviceGroupGuid/:userId')
   async removeDeviceGroupUserPermission(
     @Param('deviceGroupGuid') deviceGroupGuid: string,
-    @Param('userGuid') userGuid: string,
+    @Param('userId') userId: string,  // 保持原有字段名 userId
   ) {
-    await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userGuid);
+    await this.deviceGroupService.removeUserPermission(deviceGroupGuid, userId);
     return { message: '删除成功' };
   }
 
@@ -247,14 +249,15 @@ export class AdminController {
 
   /**
    * 删除用户间权限
-   * DELETE /api/admin/user-permissions/:userGuid/:targetUserGuid
+   * DELETE /api/admin/user-permissions/:userId/:targetUserId
+   * 路由参数保持 userId/targetUserId
    */
-  @Delete('user-permissions/:userGuid/:targetUserGuid')
+  @Delete('user-permissions/:userId/:targetUserId')
   async removeUserUserPermission(
-    @Param('userGuid') userGuid: string,
-    @Param('targetUserGuid') targetUserGuid: string,
+    @Param('userId') userId: string,  // 保持原有字段名 userId
+    @Param('targetUserId') targetUserId: string,  // 保持原有字段名 targetUserId
   ) {
-    await this.deviceGroupService.removeUserUserPermission(userGuid, targetUserGuid);
+    await this.deviceGroupService.removeUserUserPermission(userId, targetUserId);
     return { message: '删除成功' };
   }
 
@@ -286,7 +289,7 @@ export class AdminController {
 
     return {
       users: users.map(u => ({
-        guid: u.guid,
+        id: u.guid,  // 响应字段名保持 id，值为 guid
         name: u.username,
         email: u.email,
         note: u.note,
@@ -303,16 +306,17 @@ export class AdminController {
 
   /**
    * 更新用户信息（管理员）
-   * PUT /api/admin/users/:guid
+   * PUT /api/admin/users/:id
+   * 路由参数保持 id
    */
-  @Put('users/:guid')
+  @Put('users/:id')
   async updateUser(
-    @Param('guid') guid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
     @Body() updateDto: AdminUpdateUserDto,
   ) {
-    const user = await this.userService.adminUpdateUser(guid, updateDto);
+    const user = await this.userService.adminUpdateUser(id, updateDto);
     return {
-      guid: user.guid,
+      id: user.guid,  // 响应字段名保持 id，值为 guid
       name: user.username,
       email: user.email,
       note: user.note,
@@ -323,18 +327,19 @@ export class AdminController {
 
   /**
    * 删除用户
-   * DELETE /api/admin/users/:guid
+   * DELETE /api/admin/users/:id
+   * 路由参数保持 id
    */
-  @Delete('users/:guid')
+  @Delete('users/:id')
   async deleteUser(
-    @Param('guid') guid: string,
-    @CurrentUser('guid') currentUserGuid: string,
+    @Param('id') id: string,  // 保持原有字段名 id
+    @CurrentUser('id') currentUserId: string,  // 保持原有字段名 id
   ) {
-    if (guid === currentUserGuid) {
+    if (id === currentUserId) {
       return { error: '不能删除自己' };
     }
 
-    await this.userService.deleteUser(guid);
+    await this.userService.deleteUser(id);
     return { message: '删除成功' };
   }
 
@@ -348,7 +353,7 @@ export class AdminController {
   async getAllOidcProviders() {
     const providers = await this.oidcService.getAllProviders();
     return providers.map(p => ({
-      guid: p.guid,
+      id: p.guid,  // 响应字段名保持 id，值为 guid
       name: p.name,
       issuer: p.issuer,
       client_id: p.clientId,
@@ -368,7 +373,7 @@ export class AdminController {
   async createOidcProvider(@Body() providerData: OidcProviderDto) {
     const provider = await this.oidcService.upsertProvider(providerData);
     return {
-      guid: provider.guid,
+      id: provider.guid,  // 响应字段名保持 id，值为 guid
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,
@@ -390,7 +395,7 @@ export class AdminController {
     });
 
     return {
-      guid: provider.guid,
+      id: provider.guid,  // 响应字段名保持 id，值为 guid
       name: provider.name,
       issuer: provider.issuer,
       enabled: provider.enabled,

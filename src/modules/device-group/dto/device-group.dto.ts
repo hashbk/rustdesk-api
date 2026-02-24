@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, IsInt, IsUUID, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsInt, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -46,23 +46,25 @@ export class UpdateDeviceGroupDto {
 
 /**
  * 添加用户设备组权限DTO
+ * 注意：请求字段名保持 userId，内部映射到 userGuid
  */
 export class AddDeviceGroupUserPermissionDto {
-  @IsUUID()
+  @IsString()
   deviceGroupGuid: string;
 
-  @IsUUID()
-  userGuid: string;
+  @IsString()
+  userId: string;  // 请求字段名保持 userId，实际存储为 userGuid
 }
 
 /**
  * 批量设置设备组用户权限DTO
+ * 注意：请求字段名保持 userIds，内部映射到 userGuids
  */
 export class SetDeviceGroupUsersDto {
-  @IsUUID()
+  @IsString()
   deviceGroupGuid: string;
 
   @IsArray()
-  @IsUUID('4', { each: true })
-  userGuids: string[];
+  @IsString({ each: true })
+  userIds: string[];  // 请求字段名保持 userIds，实际存储为 userGuids
 }

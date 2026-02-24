@@ -30,7 +30,7 @@ export interface PeerResponse {
 export interface PeerAdminResponse {
   id: string;
   uuid: string;
-  user_guid: string | null;
+  user_id: string | null;  // 保持原有字段名 user_id
   device_group_guid: string | null;
   device_group_name: string;
   ver: number;
@@ -106,7 +106,7 @@ export class PeerFormatter {
     return {
       id: peer.id,
       uuid: peer.uuid,
-      user_guid: peer.userGuid,
+      user_id: peer.userGuid,  // 响应字段名保持 user_id，值为 userGuid
       device_group_guid: peer.deviceGroupGuid,
       device_group_name: peer.deviceGroup?.name || '',
       ver: peer.ver,

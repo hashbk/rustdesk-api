@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, IsInt, IsUUID, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsInt, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -27,23 +27,25 @@ export class UserQueryDto {
 
 /**
  * 添加用户间权限DTO
+ * 注意：请求字段名保持 userId/targetUserId，内部映射到 userGuid/targetUserGuid
  */
 export class AddUserUserPermissionDto {
-  @IsUUID()
-  userGuid: string;         // 授权用户唯一标识符
+  @IsString()
+  userId: string;         // 授权用户ID（请求字段名保持不变）
 
-  @IsUUID()
-  targetUserGuid: string;   // 目标用户唯一标识符
+  @IsString()
+  targetUserId: string;   // 目标用户ID（请求字段名保持不变）
 }
 
 /**
  * 批量设置用户权限DTO
+ * 注意：请求字段名保持 targetUserId/userIds，内部映射到 targetUserGuid/userGuids
  */
 export class SetUserPermissionsDto {
-  @IsUUID()
-  targetUserGuid: string;   // 目标用户唯一标识符
+  @IsString()
+  targetUserId: string;   // 目标用户ID（请求字段名保持不变）
 
   @IsArray()
-  @IsUUID('4', { each: true })
-  userGuids: string[];      // 授权用户唯一标识符列表
+  @IsString({ each: true })
+  userIds: string[];      // 授权用户ID列表（请求字段名保持不变）
 }

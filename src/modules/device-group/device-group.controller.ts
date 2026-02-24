@@ -34,11 +34,11 @@ export class DeviceGroupController {
    */
   @Get('device-group/accessible')
   async getAccessibleDeviceGroups(
-    @CurrentUser('guid') userGuid: string,
+    @CurrentUser('id') userId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: DeviceGroupQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleDeviceGroups(userGuid, query, isAdmin);
+    return this.deviceGroupService.getAccessibleDeviceGroups(userId, query, isAdmin);
   }
 
   /**
@@ -48,11 +48,11 @@ export class DeviceGroupController {
    */
   @Get('peers')
   async getAccessiblePeers(
-    @CurrentUser('guid') userGuid: string,
+    @CurrentUser('id') userId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: PeerQueryDto,
   ) {
-    return this.peerService.getAccessiblePeers(userGuid, query, isAdmin);
+    return this.peerService.getAccessiblePeers(userId, query, isAdmin);
   }
 
   /**
@@ -62,11 +62,11 @@ export class DeviceGroupController {
    */
   @Get('users')
   async getAccessibleUsers(
-    @CurrentUser('guid') userGuid: string,
+    @CurrentUser('id') userId: string,  // 保持原有字段名 id
     @CurrentUser('isAdmin') isAdmin: boolean,
     @Query() query: UserQueryDto,
   ) {
-    return this.deviceGroupService.getAccessibleUsers(userGuid, query, isAdmin);
+    return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
   }
 
   // ============ 设备组管理接口（需要管理员权限）============
@@ -173,16 +173,17 @@ export class DeviceGroupController {
   /**
    * 设置设备组的用户权限
    * POST /api/device-groups/:guid/users
+   * 请求字段名保持 userIds
    */
   @Post('device-groups/:guid/users')
   @UseGuards(AdminGuard)
   async setDeviceGroupUsers(
     @Param('guid') guid: string,
-    @Body() body: { userGuids: string[] },
+    @Body() body: { userIds: string[] },  // 保持原有字段名 userIds
   ) {
     await this.deviceGroupService.setDeviceGroupUsers({
       deviceGroupGuid: guid,
-      userGuids: body.userGuids,
+      userIds: body.userIds,
     });
     return { message: '设置成功' };
   }
