@@ -30,13 +30,14 @@ import { DeviceGroup } from './modules/device-group/entities/device-group.entity
 import { DeviceGroupUserPermission } from './modules/device-group/entities/device-group-user-permission.entity';
 import { UserUserPermission } from './modules/device-group/entities/user-user-permission.entity';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { EmailVerificationSession } from './modules/auth/entities/email-verification-session.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission, EmailVerificationSession],
       synchronize: true,
       logging: false,
     }),

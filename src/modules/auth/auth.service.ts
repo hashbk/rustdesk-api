@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticator } from 'otplib';
@@ -10,6 +10,8 @@ import { UserToken } from '../user/entities/user-token.entity';
 import { Peer } from '../../common/entities';
 import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 import { JwtPayload } from '../../common/services/token.service';
+import { EmailVerificationSession } from './entities/email-verification-session.entity';
+import { EmailService } from '../email/email.service';
 
 export interface LoginResponse {
   access_token?: string;
@@ -31,6 +33,7 @@ export interface LoginResponse {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly TOKEN_EXPIRY_DAYS = 30; // Token 有效期 30 天
+  private readonly VERIFICATION_CODE_EXPIRY_MINUTES = 5; // 验证码有效期 5 分钟
 
   constructor(
     @InjectRepository(User)
@@ -39,8 +42,10 @@ export class AuthService {
     private tokenRepository: Repository<UserToken>,
     @InjectRepository(Peer)
     private peerRepository: Repository<Peer>,
+    @InjectRepository(EmailVerificationSession)
+    private verificationSessionRepository: Repository<EmailVerificationSession>,
     private jwtService: JwtService,
-    
+    private emailService: EmailService,
   ) {}
 
   /**
@@ -83,12 +88,17 @@ export class AuthService {
    * 用户登录
    */
   async login(loginDto: LoginDto): Promise<LoginResponse> {
-    const { username, password, id, uuid, type, verificationCode, tfaCode, deviceInfo } = loginDto;
+    const { username, password, id, uuid, type, verificationCode, tfaCode, secret, deviceInfo } = loginDto;
 
     // 根据登录类型处理
-    if (type === 'sms_code' || type === 'email_code') {
-      // 短信/邮箱验证码登录功能正在开发中，暂时禁用
-        throw new BadRequestException('短信/邮箱验证码登录功能正在开发中，暂时不可用');
+    if (type === 'email_code') {
+      // 邮箱验证码验证（第二步）
+      return this.handleEmailCodeLogin(loginDto);
+    }
+
+    if (type === 'sms_code') {
+      // 短信验证码登录功能正在开发中，暂时禁用
+      throw new BadRequestException('短信验证码登录功能正在开发中，暂时不可用');
     }
 
     if (type === 'tfa_code') {
@@ -130,6 +140,13 @@ export class AuthService {
       throw new UnauthorizedException('请先验证邮箱');
     }
 
+    // 检查是否需要邮箱验证（用户设置中开启了 email_verification）
+    const userInfo = user.getUserInfo();
+    if (userInfo?.email_verification && user.email) {
+      // 生成验证码会话并发送邮件
+      return this.initiateEmailVerification(user);
+    }
+
     // 检查是否需要双因素认证
     if (user.tfaSecret) {
       if (!tfaCode) {
@@ -162,6 +179,132 @@ export class AuthService {
 
     // 生成 Token
     const token = await this.generateToken(user, id, uuid);
+
+    return {
+      access_token: token,
+      type: 'access_token',
+      user: {
+        name: user.username,
+        email: user.email || undefined,
+        note: user.note || undefined,
+        status: user.status,
+        info: user.getUserInfo(),
+        is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
+      },
+    };
+  }
+
+  /**
+   * 发起邮箱验证（生成验证码并发送邮件）
+   */
+  private async initiateEmailVerification(user: User): Promise<LoginResponse> {
+    // 生成 6 位验证码
+    const code = Math.random().toString().slice(-6);
+
+    // 生成 secret（用于关联两次请求）
+    const secret = uuidv4();
+
+    // 计算过期时间
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + this.VERIFICATION_CODE_EXPIRY_MINUTES);
+
+    // 删除该用户之前的验证会话
+    await this.verificationSessionRepository.delete({ userId: user.id, used: false });
+
+    // 创建验证会话
+    const session = this.verificationSessionRepository.create({
+      secret,
+      userId: user.id,
+      email: user.email,
+      code,
+      expiresAt,
+      used: false,
+    });
+    await this.verificationSessionRepository.save(session);
+
+    // 发送验证码邮件
+    const sent = await this.emailService.sendVerificationCode(user.email, code);
+    if (!sent) {
+      throw new BadRequestException('发送验证码邮件失败，请稍后重试');
+    }
+
+    this.logger.log(`用户 ${user.username} 登录需要邮箱验证，验证码已发送至 ${user.email}`);
+
+    return {
+      type: 'email_check',
+      tfa_type: 'email_check',
+      secret,
+      user: {
+        name: user.username,
+        email: user.email || undefined,
+        note: user.note || undefined,
+        status: user.status,
+        info: user.getUserInfo(),
+        is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
+      },
+    };
+  }
+
+  /**
+   * 邮箱验证码登录（第二步验证）
+   */
+  private async handleEmailCodeLogin(loginDto: LoginDto): Promise<LoginResponse> {
+    const { username, verificationCode, secret, id, uuid, deviceInfo } = loginDto;
+
+    if (!username || !verificationCode || !secret) {
+      throw new BadRequestException('验证参数不完整');
+    }
+
+    // 查找验证会话
+    const session = await this.verificationSessionRepository.findOne({
+      where: {
+        secret,
+        used: false,
+        expiresAt: MoreThan(new Date()),
+      },
+    });
+
+    if (!session) {
+      throw new UnauthorizedException('验证码已过期或无效，请重新登录');
+    }
+
+    // 验证验证码
+    if (session.code !== verificationCode) {
+      throw new UnauthorizedException('验证码错误');
+    }
+
+    // 查找用户
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.username = :username OR user.email = :email', { username, email: username })
+      .addSelect('user.info')
+      .addSelect('user.thirdAuthType')
+      .getOne();
+
+    if (!user || user.id !== session.userId) {
+      throw new UnauthorizedException('用户信息不匹配');
+    }
+
+    // 检查用户状态
+    if (user.status === UserStatus.DISABLED) {
+      throw new UnauthorizedException('账户已被禁用');
+    }
+
+    // 标记验证会话为已使用
+    session.used = true;
+    await this.verificationSessionRepository.save(session);
+
+    // 创建设备记录
+    if (id || uuid) {
+      await this.createOrUpdateDevice(user.id, id, uuid, deviceInfo);
+    }
+
+    // 生成 Token
+    const token = await this.generateToken(user, id, uuid);
+
+    this.logger.log(`用户 ${user.username} 邮箱验证成功，已登录`);
 
     return {
       access_token: token,
