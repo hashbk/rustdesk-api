@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { EmailService } from './email.service';
 
 @Module({
@@ -19,6 +20,7 @@ import { EmailService } from './email.service';
       },
       template: {
         dir: __dirname + '/templates',
+        adapter: new HandlebarsAdapter(),
         options: {
           strict: true,
         },
