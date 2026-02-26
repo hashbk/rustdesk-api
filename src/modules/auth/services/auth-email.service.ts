@@ -1,0 +1,171 @@
+import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, MoreThan } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { User, UserInfo } from '../../user/entities/user.entity';
+import { EmailVerificationSession } from '../entities/email-verification-session.entity';
+import { LoginDto } from '../dto/auth.dto';
+import { EmailService } from '../../email/email.service';
+
+export interface LoginResponse {
+  access_token?: string;
+  type: string;
+  tfa_type?: string;
+  secret?: string;
+  user?: {
+    name: string;
+    email?: string;
+    note?: string;
+    status: number;
+    info?: UserInfo;
+    is_admin: boolean;
+    third_auth_type?: string;
+  };
+}
+
+@Injectable()
+export class AuthEmailService {
+  private readonly logger = new Logger(AuthEmailService.name);
+  private readonly VERIFICATION_CODE_EXPIRY_MINUTES = 5; // 验证码有效期 5 分钟
+
+  constructor(
+    @InjectRepository(EmailVerificationSession)
+    private verificationSessionRepository: Repository<EmailVerificationSession>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private emailService: EmailService,
+  ) {}
+
+  /**
+   * 发起邮箱验证（生成验证码并发送邮件）
+   */
+  async initiateEmailVerification(
+    user: User,
+  ): Promise<LoginResponse> {
+    // 生成 6 位验证码
+    const code = Math.random().toString().slice(-6);
+
+    // 生成 secret（用于关联两次请求）
+    const secret = uuidv4();
+
+    // 计算过期时间
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + this.VERIFICATION_CODE_EXPIRY_MINUTES);
+
+    // 删除该用户之前的验证会话
+    await this.verificationSessionRepository.delete({ userGuid: user.guid, used: false });
+
+    // 创建验证会话
+    const session = this.verificationSessionRepository.create({
+      guid: uuidv4(),
+      secret,
+      userGuid: user.guid,
+      email: user.email,
+      code,
+      expiresAt,
+      used: false,
+    });
+    await this.verificationSessionRepository.save(session);
+
+    // 发送验证码邮件
+    const sent = await this.emailService.sendVerificationCode(user.email!, code);
+    if (!sent) {
+      throw new BadRequestException('发送验证码邮件失败，请稍后重试');
+    }
+
+    this.logger.log(`用户 ${user.username} 登录需要邮箱验证，验证码已发送至 ${user.email}`);
+
+    return {
+      type: 'email_check',
+      tfa_type: 'email_check',
+      secret,
+      user: {
+        name: user.username,
+        email: user.email || undefined,
+        note: user.note || undefined,
+        status: user.status,
+        info: user.getUserInfo(),
+        is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
+      },
+    };
+  }
+
+  /**
+   * 邮箱验证码登录（第二步验证）
+   */
+  async handleEmailCodeLogin(
+    loginDto: LoginDto,
+    generateToken: (user: User, deviceId?: string, deviceUuid?: string) => Promise<string>,
+    createOrUpdateDevice?: (userGuid: string, deviceId?: string, deviceUuid?: string, deviceInfo?: Record<string, any>) => Promise<void>,
+  ): Promise<LoginResponse> {
+    const { username, verificationCode, secret, id, uuid, deviceInfo } = loginDto;
+
+    if (!username || !verificationCode || !secret) {
+      throw new BadRequestException('验证参数不完整');
+    }
+
+    // 查找验证会话
+    const session = await this.verificationSessionRepository.findOne({
+      where: {
+        secret,
+        used: false,
+        expiresAt: MoreThan(new Date()),
+      },
+    });
+
+    if (!session) {
+      throw new UnauthorizedException('验证码已过期或无效，请重新登录');
+    }
+
+    // 验证验证码
+    if (session.code !== verificationCode) {
+      throw new UnauthorizedException('验证码错误');
+    }
+
+    // 查找用户
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.username = :username OR user.email = :email', { username, email: username })
+      .addSelect('user.info')
+      .addSelect('user.thirdAuthType')
+      .getOne();
+
+    if (!user || user.guid !== session.userGuid) {
+      throw new UnauthorizedException('用户信息不匹配');
+    }
+
+    // 检查用户状态
+    if (user.status === 0) { // UserStatus.DISABLED
+      throw new UnauthorizedException('账户已被禁用');
+    }
+
+    // 标记验证会话为已使用
+    session.used = true;
+    await this.verificationSessionRepository.save(session);
+
+    // 创建设备记录
+    if (createOrUpdateDevice && (id || uuid)) {
+      await createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
+    }
+
+    // 生成 Token
+    const token = await generateToken(user, id, uuid);
+
+    this.logger.log(`用户 ${user.username} 邮箱验证成功，已登录`);
+
+    return {
+      access_token: token,
+      type: 'access_token',
+      user: {
+        name: user.username,
+        email: user.email || undefined,
+        note: user.note || undefined,
+        status: user.status,
+        info: user.getUserInfo(),
+        is_admin: user.isAdmin,
+        third_auth_type: user.thirdAuthType || undefined,
+      },
+    };
+  }
+}
