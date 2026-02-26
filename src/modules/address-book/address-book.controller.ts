@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
-import { AddressBookService } from './address-book.service';
+import { AddressBookService } from './services';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ShareRule } from './entities/address-book-share.entity';
