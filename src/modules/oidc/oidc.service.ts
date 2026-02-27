@@ -357,48 +357,6 @@ export class OidcService {
   }
 
   /**
-   * 创建或更新 OIDC 提供商
-   */
-  async upsertProvider(providerData: Partial<OidcProvider>): Promise<OidcProvider> {
-    let provider = await this.providerRepository.findOne({
-      where: { name: providerData.name },
-    });
-
-    if (provider) {
-      Object.assign(provider, providerData);
-    } else {
-      provider = this.providerRepository.create({
-        guid: uuidv4(),
-        ...providerData,
-      });
-    }
-
-    return this.providerRepository.save(provider);
-  }
-
-  /**
-   * 删除 OIDC 提供商
-   */
-  async deleteProvider(providerName: string): Promise<void> {
-    const provider = await this.providerRepository.findOne({
-      where: { name: providerName },
-    });
-
-    if (provider) {
-      await this.providerRepository.remove(provider);
-    }
-  }
-
-  /**
-   * 获取所有 OIDC 提供商（管理员）
-   */
-  async getAllProviders(): Promise<OidcProvider[]> {
-    return this.providerRepository.find({
-      order: { priority: 'ASC' },
-    });
-  }
-
-  /**
    * 模拟 OIDC code 交换（实际项目中需要实现）
    */
   private async exchangeCodeForUserInfo(

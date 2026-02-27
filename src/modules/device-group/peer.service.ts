@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Peer, Sysinfo } from '../../common/entities';
@@ -6,7 +6,7 @@ import { User } from '../user/entities/user.entity';
 import { DeviceGroup } from './entities/device-group.entity';
 import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
 import { UserUserPermission } from './entities/user-user-permission.entity';
-import { PeerQueryDto, UpdatePeerDto, SetPeerDeviceGroupDto } from './dto/peer.dto';
+import { PeerQueryDto } from './dto/peer.dto';
 
 @Injectable()
 export class PeerService {
@@ -28,7 +28,7 @@ export class PeerService {
   /**
    * 获取用户可访问的设备列表（分页）
    * GET /api/peers?current=1&pageSize=100&accessible=&status=1
-   * 
+   *
    * 权限逻辑：
    * 1. 管理员可以看到所有设备
    * 2. 普通用户：
@@ -98,7 +98,7 @@ export class PeerService {
 
     // 获取所有相关的用户GUID
     const userGuids = [...new Set(peers.map(p => p.userGuid).filter(guid => guid != null))];
-    
+
     // 批量查询用户信息
     const users = userGuids.length > 0
       ? await this.userRepository.find({ where: { guid: In(userGuids) } })
@@ -127,104 +127,5 @@ export class PeerService {
     });
 
     return { data, total };
-  }
-
-  /**
-   * 获取所有设备（管理员）
-   */
-  async findAll(page: number = 1, limit: number = 20): Promise<{ peers: Peer[]; total: number }> {
-    const [peers, total] = await this.peerRepository.findAndCount({
-      relations: ['deviceGroup'],
-      order: { id: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    return { peers, total };
-  }
-
-  /**
-   * 根据设备ID获取设备
-   */
-  async findById(peerId: string): Promise<Peer | null> {
-    return this.peerRepository.findOne({
-      where: { id: peerId },
-      relations: ['deviceGroup'],
-    });
-  }
-
-  /**
-   * 根据UUID获取设备
-   */
-  async findByUuid(uuid: string): Promise<Peer | null> {
-    return this.peerRepository.findOne({
-      where: { uuid },
-      relations: ['deviceGroup'],
-    });
-  }
-
-  /**
-   * 更新设备信息
-   */
-  async updatePeerInfo(uuid: string, updateDto: UpdatePeerDto): Promise<void> {
-    const peer = await this.findByUuid(uuid);
-    if (!peer) {
-      throw new NotFoundException('设备不存在');
-    }
-
-    // 更新设备组
-    if (updateDto.deviceGroupGuid !== undefined) {
-      if (updateDto.deviceGroupGuid) {
-        const deviceGroup = await this.deviceGroupRepository.findOne({
-          where: { guid: updateDto.deviceGroupGuid },
-        });
-        if (!deviceGroup) {
-          throw new NotFoundException('设备组不存在');
-        }
-        peer.deviceGroupGuid = updateDto.deviceGroupGuid;
-      } else {
-        peer.deviceGroupGuid = null as any;
-      }
-    }
-
-    await this.peerRepository.save(peer);
-  }
-
-  /**
-   * 删除设备（解除用户绑定）
-   */
-  async deletePeer(uuid: string): Promise<void> {
-    const peer = await this.findByUuid(uuid);
-    if (peer) {
-      // 将设备的 userGuid 和 deviceGroupGuid 设为 null，表示解除绑定
-      peer.userGuid = null as any;
-      peer.deviceGroupGuid = null as any;
-      await this.peerRepository.save(peer);
-    }
-  }
-
-  /**
-   * 批量设置设备的设备组
-   */
-  async setPeerDeviceGroup(dto: SetPeerDeviceGroupDto): Promise<void> {
-    if (dto.peerIds.length === 0) {
-      return;
-    }
-
-    // 检查设备组是否存在
-    if (dto.deviceGroupGuid) {
-      const deviceGroup = await this.deviceGroupRepository.findOne({
-        where: { guid: dto.deviceGroupGuid },
-      });
-      if (!deviceGroup) {
-        throw new NotFoundException('设备组不存在');
-      }
-    }
-
-    // 批量更新
-    await this.peerRepository.update(
-      { id: In(dto.peerIds) },
-      { deviceGroupGuid: dto.deviceGroupGuid || (null as any) },
-    );
   }
 }

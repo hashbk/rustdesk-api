@@ -11,7 +11,6 @@ import { DeviceGroupModule } from './modules/device-group/device-group.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/oidc/oidc.module';
 import { SysinfoModule } from './modules/sysinfo/sysinfo.module';
-import { AdminModule } from './admin/admin.module';
 import { DatabaseModule } from './database/database.module';
 import { Sysinfo, Peer } from './common/entities';
 import { ConnectionAudit } from './modules/audit/entities/connection-audit.entity';
@@ -50,7 +49,6 @@ import { EmailVerificationSession } from './modules/auth/entities/email-verifica
     AuthModule,
     OidcModule,
     SysinfoModule,
-    AdminModule,
   ],
   controllers: [AppController],
   providers: [

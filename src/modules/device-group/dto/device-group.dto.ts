@@ -20,31 +20,6 @@ export class DeviceGroupQueryDto {
 }
 
 /**
- * 创建设备组DTO
- */
-export class CreateDeviceGroupDto {
-  @IsString()
-  name: string;
-
-  @IsOptional()
-  @IsString()
-  note?: string;
-}
-
-/**
- * 更新设备组DTO
- */
-export class UpdateDeviceGroupDto {
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  note?: string;
-}
-
-/**
  * 添加用户设备组权限DTO
  * 注意：请求字段名保持 userId，内部映射到 userGuid
  */
