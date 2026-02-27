@@ -2,7 +2,6 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, HttpCode, HttpS
 import { AddressBookService } from './services';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ShareRule } from './entities/address-book-share.entity';
 
 @Controller('ab')
 export class AddressBookController {
