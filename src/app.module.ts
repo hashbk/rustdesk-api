@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { HeartbeatModule } from './modules/heartbeat/heartbeat.module';
 import { AddressBookModule } from './modules/address-book/address-book.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -50,9 +48,7 @@ import { EmailVerificationSession } from './modules/auth/entities/email-verifica
     OidcModule,
     SysinfoModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
