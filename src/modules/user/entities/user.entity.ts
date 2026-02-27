@@ -19,26 +19,7 @@ export enum UserStatus {
 export interface UserInfo {
   email_verification?: boolean;
   email_alarm_notification?: boolean;
-  login_device_whitelist?: WhitelistItem[];
   other?: Record<string, any>;
-}
-
-/**
- * 白名单项
- */
-export interface WhitelistItem {
-  data: string;      // IP 地址或设备 UUID
-  info: DeviceInfo;  // 设备信息
-  exp: number;       // 过期时间戳（秒）
-}
-
-/**
- * 设备信息
- */
-export interface DeviceInfo {
-  os: string;    // 操作系统：Linux, Windows, Android...
-  type: string;  // 类型：browser 或 client
-  name: string;  // 设备名称或浏览器信息
 }
 
 /**
@@ -164,7 +145,6 @@ export class User {
       return {
         email_verification: false,
         email_alarm_notification: false,
-        login_device_whitelist: [],
         other: {},
       };
     }
@@ -174,7 +154,6 @@ export class User {
       return {
         email_verification: false,
         email_alarm_notification: false,
-        login_device_whitelist: [],
         other: {},
       };
     }
