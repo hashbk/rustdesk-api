@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { DeviceGroupService } from './device-group.service';
+import { DeviceGroupService } from './services';
 import { PeerService } from './peer.service';
 import { DeviceGroupQueryDto } from './dto/device-group.dto';
 import { PeerQueryDto } from './dto/peer.dto';
