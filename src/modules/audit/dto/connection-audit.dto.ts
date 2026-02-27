@@ -1,5 +1,4 @@
 import { IsString, IsOptional, IsArray, IsInt, Min, Max, IsNumber } from 'class-validator';
-import { ConnType } from '../entities/connection-audit.entity';
 
 export class ConnectionAuditDto {
   @IsString()
@@ -34,5 +33,5 @@ export class ConnectionAuditDto {
   @Min(0)
   @Max(4)
   @IsOptional()
-  type?: ConnType;
+  type?: number;
 }

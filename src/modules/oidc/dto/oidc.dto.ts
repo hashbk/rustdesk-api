@@ -1,4 +1,4 @@
-import { IsString, IsObject, IsOptional } from 'class-validator';
+import { IsString, IsObject } from 'class-validator';
 
 /**
  * 设备信息
@@ -29,52 +29,4 @@ export class OidcAuthRequestDto {
 
   @IsObject()
   deviceInfo: DeviceInfoDto;  // 设备信息
-}
-
-/**
- * OIDC 授权取消请求
- */
-export class OidcCancelDto {
-  @IsString()
-  code: string;  // 授权码
-}
-
-/**
- * OIDC 提供商配置
- */
-export class OidcProviderDto {
-  @IsString()
-  name: string;
-
-  @IsString()
-  issuer: string;
-
-  @IsString()
-  clientId: string;
-
-  @IsOptional()
-  @IsString()
-  clientSecret?: string;
-
-  @IsOptional()
-  @IsString()
-  scope?: string;
-
-  @IsOptional()
-  @IsString()
-  authorizationEndpoint?: string;
-
-  @IsOptional()
-  @IsString()
-  tokenEndpoint?: string;
-
-  @IsOptional()
-  @IsString()
-  userinfoEndpoint?: string;
-
-  @IsOptional()
-  enabled?: boolean;
-
-  @IsOptional()
-  priority?: number;
 }

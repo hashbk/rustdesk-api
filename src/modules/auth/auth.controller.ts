@@ -1,6 +1,6 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService } from './services';
-import { LoginDto, RegisterDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
+import { LoginDto, CurrentUserDto, LogoutDto } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { Request } from 'express';
@@ -14,12 +14,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
-  }
-
-  @Public()
-  @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
   }
 
   @Post('logout')

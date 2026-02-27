@@ -1,29 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 import { DeviceGroup } from './entities/device-group.entity';
-import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
-import { UserUserPermission } from './entities/user-user-permission.entity';
 import { User, UserStatus } from '../user/entities/user.entity';
-import { 
-  DeviceGroupQueryDto, 
-  CreateDeviceGroupDto, 
-  UpdateDeviceGroupDto,
-  AddDeviceGroupUserPermissionDto,
-  SetDeviceGroupUsersDto,
-} from './dto/device-group.dto';
-import { AddUserUserPermissionDto, SetUserPermissionsDto } from './dto/user.dto';
 
 @Injectable()
 export class DeviceGroupService {
   constructor(
     @InjectRepository(DeviceGroup)
     private deviceGroupRepository: Repository<DeviceGroup>,
-    @InjectRepository(DeviceGroupUserPermission)
-    private deviceGroupUserPermissionRepository: Repository<DeviceGroupUserPermission>,
-    @InjectRepository(UserUserPermission)
-    private userUserPermissionRepository: Repository<UserUserPermission>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
@@ -35,7 +20,7 @@ export class DeviceGroupService {
    */
   async getAccessibleDeviceGroups(
     userGuid: string,
-    query: DeviceGroupQueryDto,
+    query: { current: number; pageSize: number },
     isAdmin: boolean = false,
   ): Promise<{ data: { name: string }[]; total: number }> {
     const { current, pageSize } = query;
@@ -72,258 +57,6 @@ export class DeviceGroupService {
       data: groups.map(g => ({ name: g.name })),
       total,
     };
-  }
-
-  /**
-   * 获取所有设备组（管理员）
-   */
-  async findAll(page: number = 1, limit: number = 20): Promise<{ groups: DeviceGroup[]; total: number }> {
-    const [groups, total] = await this.deviceGroupRepository.findAndCount({
-      order: { name: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    return { groups, total };
-  }
-
-  /**
-   * 根据 GUID 获取设备组
-   */
-  async findByGuid(guid: string): Promise<DeviceGroup | null> {
-    return this.deviceGroupRepository.findOne({ where: { guid } });
-  }
-
-  /**
-   * 根据名称获取设备组
-   */
-  async findByName(name: string): Promise<DeviceGroup | null> {
-    return this.deviceGroupRepository.findOne({ where: { name } });
-  }
-
-  /**
-   * 创建设备组
-   */
-  async create(createDto: CreateDeviceGroupDto): Promise<DeviceGroup> {
-    // 检查名称是否已存在
-    const existing = await this.findByName(createDto.name);
-    if (existing) {
-      throw new BadRequestException('设备组名称已存在');
-    }
-
-    const group = this.deviceGroupRepository.create({
-      guid: uuidv4(),
-      ...createDto,
-    });
-
-    return this.deviceGroupRepository.save(group);
-  }
-
-  /**
-   * 更新设备组
-   */
-  async update(guid: string, updateDto: UpdateDeviceGroupDto): Promise<DeviceGroup> {
-    const group = await this.findByGuid(guid);
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    // 如果要修改名称，检查是否已存在
-    if (updateDto.name && updateDto.name !== group.name) {
-      const existing = await this.findByName(updateDto.name);
-      if (existing) {
-        throw new BadRequestException('设备组名称已存在');
-      }
-    }
-
-    Object.assign(group, updateDto);
-    return this.deviceGroupRepository.save(group);
-  }
-
-  /**
-   * 删除设备组
-   */
-  async delete(guid: string): Promise<void> {
-    const group = await this.findByGuid(guid);
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    await this.deviceGroupRepository.remove(group);
-  }
-
-  // ============ 设备组用户权限管理 ============
-
-  /**
-   * 获取设备组的用户列表
-   * 响应字段名保持 userId
-   */
-  async getDeviceGroupUsers(guid: string): Promise<{ userId: string; username: string }[]> {
-    const permissions = await this.deviceGroupUserPermissionRepository.find({
-      where: { deviceGroupGuid: guid },
-      relations: ['user'],
-    });
-
-    return permissions.map(p => ({
-      userId: p.userGuid,  // 响应字段名保持 userId
-      username: p.user?.username || '',
-    }));
-  }
-
-  /**
-   * 添加用户设备组权限
-   * 请求字段名 userId 映射到数据库字段 userGuid
-   */
-  async addUserPermission(dto: AddDeviceGroupUserPermissionDto): Promise<void> {
-    // 检查设备组是否存在
-    const group = await this.findByGuid(dto.deviceGroupGuid);
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    // 检查用户是否存在（dto.userId 实际是用户的 guid）
-    const user = await this.userRepository.findOne({ where: { guid: dto.userId } });
-    if (!user) {
-      throw new NotFoundException('用户不存在');
-    }
-
-    // 检查权限是否已存在
-    const existing = await this.deviceGroupUserPermissionRepository.findOne({
-      where: { deviceGroupGuid: dto.deviceGroupGuid, userGuid: dto.userId },
-    });
-    if (existing) {
-      return; // 权限已存在，无需重复添加
-    }
-
-    const permission = this.deviceGroupUserPermissionRepository.create({
-      deviceGroupGuid: dto.deviceGroupGuid,
-      userGuid: dto.userId,  // 映射: userId -> userGuid
-    });
-    await this.deviceGroupUserPermissionRepository.save(permission);
-  }
-
-  /**
-   * 移除用户设备组权限
-   */
-  async removeUserPermission(deviceGroupGuid: string, userId: string): Promise<void> {
-    await this.deviceGroupUserPermissionRepository.delete({
-      deviceGroupGuid,
-      userGuid: userId,  // 参数名 userId 实际是 userGuid
-    });
-  }
-
-  /**
-   * 批量设置设备组的用户权限
-   * 请求字段名 userIds 映射到数据库字段 userGuids
-   */
-  async setDeviceGroupUsers(dto: SetDeviceGroupUsersDto): Promise<void> {
-    // 检查设备组是否存在
-    const group = await this.findByGuid(dto.deviceGroupGuid);
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    // 删除现有关联
-    await this.deviceGroupUserPermissionRepository.delete({
-      deviceGroupGuid: dto.deviceGroupGuid,
-    });
-
-    // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds.map(userId => ({
-        deviceGroupGuid: dto.deviceGroupGuid,
-        userGuid: userId,  // 映射: userId -> userGuid
-      }));
-      await this.deviceGroupUserPermissionRepository.insert(permissions);
-    }
-  }
-
-  // ============ 用户间权限管理 ============
-
-  /**
-   * 获取用户有权访问的其他用户列表
-   * 响应字段名保持 targetUserId
-   */
-  async getAccessibleTargetUsers(userGuid: string): Promise<string[]> {
-    const permissions = await this.userUserPermissionRepository.find({
-      where: { userGuid },
-      select: ['targetUserGuid'],
-    });
-    return permissions.map(p => p.targetUserGuid);
-  }
-
-  /**
-   * 添加用户间权限
-   * 请求字段名 userId/targetUserId 映射到数据库字段 userGuid/targetUserGuid
-   */
-  async addUserUserPermission(dto: AddUserUserPermissionDto): Promise<void> {
-    // 检查用户是否存在
-    const [user, targetUser] = await Promise.all([
-      this.userRepository.findOne({ where: { guid: dto.userId } }),
-      this.userRepository.findOne({ where: { guid: dto.targetUserId } }),
-    ]);
-    if (!user || !targetUser) {
-      throw new NotFoundException('用户不存在');
-    }
-
-    // 不能给自己授权
-    if (dto.userId === dto.targetUserId) {
-      throw new BadRequestException('不能给自己授权');
-    }
-
-    // 检查权限是否已存在
-    const existing = await this.userUserPermissionRepository.findOne({
-      where: { userGuid: dto.userId, targetUserGuid: dto.targetUserId },
-    });
-    if (existing) {
-      return; // 权限已存在
-    }
-
-    const permission = this.userUserPermissionRepository.create({
-      userGuid: dto.userId,        // 映射: userId -> userGuid
-      targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-    });
-    await this.userUserPermissionRepository.save(permission);
-  }
-
-  /**
-   * 移除用户间权限
-   */
-  async removeUserUserPermission(userId: string, targetUserId: string): Promise<void> {
-    await this.userUserPermissionRepository.delete({
-      userGuid: userId,        // 参数名 userId 实际是 userGuid
-      targetUserGuid: targetUserId,  // 参数名 targetUserId 实际是 targetUserGuid
-    });
-  }
-
-  /**
-   * 批量设置用户权限
-   * 请求字段名 targetUserId/userIds 映射到数据库字段 targetUserGuid/userGuids
-   */
-  async setUserPermissions(dto: SetUserPermissionsDto): Promise<void> {
-    // 检查目标用户是否存在
-    const targetUser = await this.userRepository.findOne({ where: { guid: dto.targetUserId } });
-    if (!targetUser) {
-      throw new NotFoundException('目标用户不存在');
-    }
-
-    // 删除现有关联
-    await this.userUserPermissionRepository.delete({
-      targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-    });
-
-    // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds
-        .filter(userId => userId !== dto.targetUserId) // 排除自己
-        .map(userId => ({
-          userGuid: userId,              // 映射: userId -> userGuid
-          targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-        }));
-      if (permissions.length > 0) {
-        await this.userUserPermissionRepository.insert(permissions);
-      }
-    }
   }
 
   /**
@@ -365,13 +98,13 @@ export class DeviceGroupService {
       .createQueryBuilder('user')
       .where('user.status = :status', { status: parseInt(status) || UserStatus.ACTIVE })
       .andWhere(
-        `(user.guid = :userGuid 
+        `(user.guid = :userGuid
           OR EXISTS (
-            SELECT 1 FROM user_user_permissions uup 
+            SELECT 1 FROM user_user_permissions uup
             WHERE uup.userGuid = :userGuid AND uup.targetUserGuid = user.guid
           )
           OR EXISTS (
-            SELECT 1 FROM peers p 
+            SELECT 1 FROM peers p
             INNER JOIN device_group_user_permissions udgp ON p.deviceGroupGuid = udgp.deviceGroupGuid
             WHERE udgp.userGuid = :userGuid AND p.userGuid = user.guid
           )

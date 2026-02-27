@@ -2,7 +2,6 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, HttpCode, HttpS
 import { AddressBookService } from './services';
 import { AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto, PaginationDto, PeersQueryDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ShareRule } from './entities/address-book-share.entity';
 
 @Controller('ab')
 export class AddressBookController {
@@ -193,34 +192,5 @@ export class AddressBookController {
     } catch (e) {
       return { error: e.message };
     }
-  }
-
-  /**
-   * 共享地址簿
-   * POST /api/ab/share/{guid}
-   */
-  @Post('share/:guid')
-  @HttpCode(HttpStatus.OK)
-  shareAddressBook(
-    @Param('guid') guid: string,
-    @Body('targetUserId') targetUserId: string,
-    @Body('rule') rule: ShareRule,
-    @CurrentUser('id') userId: number,
-  ) {
-    return this.addressBookService.shareAddressBook(guid, targetUserId, rule, String(userId));
-  }
-
-  /**
-   * 取消共享地址簿
-   * DELETE /api/ab/share/{guid}
-   */
-  @Delete('share/:guid')
-  @HttpCode(HttpStatus.OK)
-  unshareAddressBook(
-    @Param('guid') guid: string,
-    @Body('targetUserId') targetUserId: string,
-    @CurrentUser('id') userId: number,
-  ) {
-    return this.addressBookService.unshareAddressBook(guid, targetUserId, String(userId));
   }
 }

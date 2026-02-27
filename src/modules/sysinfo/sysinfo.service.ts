@@ -216,12 +216,4 @@ export class SysinfoService {
       this.logger.warn(`设备 ${sysinfo.uuid} 不存在，无法关联到设备组`);
     }
   }
-
-  async findAll(): Promise<Sysinfo[]> {
-    return await this.sysinfoRepository.find();
-  }
-
-  async findByUuid(uuid: string): Promise<Sysinfo | null> {
-    return await this.sysinfoRepository.findOne({ where: { uuid } });
-  }
 }

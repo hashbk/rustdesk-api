@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { HeartbeatModule } from './modules/heartbeat/heartbeat.module';
 import { AddressBookModule } from './modules/address-book/address-book.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -11,7 +9,6 @@ import { DeviceGroupModule } from './modules/device-group/device-group.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/oidc/oidc.module';
 import { SysinfoModule } from './modules/sysinfo/sysinfo.module';
-import { AdminModule } from './admin/admin.module';
 import { DatabaseModule } from './database/database.module';
 import { Sysinfo, Peer } from './common/entities';
 import { ConnectionAudit } from './modules/audit/entities/connection-audit.entity';
@@ -50,11 +47,8 @@ import { EmailVerificationSession } from './modules/auth/entities/email-verifica
     AuthModule,
     OidcModule,
     SysinfoModule,
-    AdminModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

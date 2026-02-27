@@ -156,30 +156,6 @@ export class AddressBookService {
     return this.shareService.getSharedAddressBooks(userId, query);
   }
 
-  async shareAddressBook(
-    addressBookGuid: string,
-    targetUserId: string,
-    rule: ShareRule,
-    ownerUserId: string,
-  ) {
-    return this.shareService.shareAddressBook(
-      addressBookGuid,
-      targetUserId,
-      rule,
-      ownerUserId,
-      this.checkAddressBookAccess.bind(this),
-    );
-  }
-
-  async unshareAddressBook(addressBookGuid: string, targetUserId: string, ownerUserId: string) {
-    return this.shareService.unshareAddressBook(
-      addressBookGuid,
-      targetUserId,
-      ownerUserId,
-      this.checkAddressBookAccess.bind(this),
-    );
-  }
-
   // ============ 旧版（Legacy）API（委托给 LegacyService） ============
 
   async getLegacyAddressBook(userId: string) {
