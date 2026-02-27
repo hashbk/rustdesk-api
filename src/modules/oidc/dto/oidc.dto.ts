@@ -30,11 +30,3 @@ export class OidcAuthRequestDto {
   @IsObject()
   deviceInfo: DeviceInfoDto;  // 设备信息
 }
-
-/**
- * OIDC 授权取消请求
- */
-export class OidcCancelDto {
-  @IsString()
-  code: string;  // 授权码
-}

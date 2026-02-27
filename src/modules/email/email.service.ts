@@ -28,25 +28,4 @@ export class EmailService {
       return false;
     }
   }
-
-  /**
-   * 发送欢迎邮件
-   */
-  async sendWelcomeEmail(email: string, username: string): Promise<boolean> {
-    try {
-      await this.mailerService.sendMail({
-        to: email,
-        subject: '欢迎加入',
-        template: './welcome',
-        context: {
-          username,
-        },
-      });
-      this.logger.log(`欢迎邮件已发送至: ${email}`);
-      return true;
-    } catch (error) {
-      this.logger.error(`发送欢迎邮件失败: ${email}`, error);
-      return false;
-    }
-  }
 }

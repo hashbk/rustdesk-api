@@ -2,21 +2,13 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { DeviceGroup } from './entities/device-group.entity';
-import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
-import { UserUserPermission } from './entities/user-user-permission.entity';
 import { User, UserStatus } from '../user/entities/user.entity';
-import { AddDeviceGroupUserPermissionDto, SetDeviceGroupUsersDto } from './dto/device-group.dto';
-import { AddUserUserPermissionDto, SetUserPermissionsDto } from './dto/user.dto';
 
 @Injectable()
 export class DeviceGroupService {
   constructor(
     @InjectRepository(DeviceGroup)
     private deviceGroupRepository: Repository<DeviceGroup>,
-    @InjectRepository(DeviceGroupUserPermission)
-    private deviceGroupUserPermissionRepository: Repository<DeviceGroupUserPermission>,
-    @InjectRepository(UserUserPermission)
-    private userUserPermissionRepository: Repository<UserUserPermission>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
@@ -65,168 +57,6 @@ export class DeviceGroupService {
       data: groups.map(g => ({ name: g.name })),
       total,
     };
-  }
-
-  // ============ 设备组用户权限管理 ============
-
-  /**
-   * 添加用户设备组权限
-   * 请求字段名 userId 映射到数据库字段 userGuid
-   */
-  async addUserPermission(dto: AddDeviceGroupUserPermissionDto): Promise<void> {
-    // 检查设备组是否存在
-    const group = await this.deviceGroupRepository.findOne({
-      where: { guid: dto.deviceGroupGuid },
-    });
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    // 检查用户是否存在（dto.userId 实际是用户的 guid）
-    const user = await this.userRepository.findOne({ where: { guid: dto.userId } });
-    if (!user) {
-      throw new NotFoundException('用户不存在');
-    }
-
-    // 检查权限是否已存在
-    const existing = await this.deviceGroupUserPermissionRepository.findOne({
-      where: { deviceGroupGuid: dto.deviceGroupGuid, userGuid: dto.userId },
-    });
-    if (existing) {
-      return; // 权限已存在，无需重复添加
-    }
-
-    const permission = this.deviceGroupUserPermissionRepository.create({
-      deviceGroupGuid: dto.deviceGroupGuid,
-      userGuid: dto.userId,  // 映射: userId -> userGuid
-    });
-    await this.deviceGroupUserPermissionRepository.save(permission);
-  }
-
-  /**
-   * 移除用户设备组权限
-   */
-  async removeUserPermission(deviceGroupGuid: string, userId: string): Promise<void> {
-    await this.deviceGroupUserPermissionRepository.delete({
-      deviceGroupGuid,
-      userGuid: userId,  // 参数名 userId 实际是 userGuid
-    });
-  }
-
-  /**
-   * 批量设置设备组的用户权限
-   * 请求字段名 userIds 映射到数据库字段 userGuids
-   */
-  async setDeviceGroupUsers(dto: SetDeviceGroupUsersDto): Promise<void> {
-    // 检查设备组是否存在
-    const group = await this.deviceGroupRepository.findOne({
-      where: { guid: dto.deviceGroupGuid },
-    });
-    if (!group) {
-      throw new NotFoundException('设备组不存在');
-    }
-
-    // 删除现有关联
-    await this.deviceGroupUserPermissionRepository.delete({
-      deviceGroupGuid: dto.deviceGroupGuid,
-    });
-
-    // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds.map(userId => ({
-        deviceGroupGuid: dto.deviceGroupGuid,
-        userGuid: userId,  // 映射: userId -> userGuid
-      }));
-      await this.deviceGroupUserPermissionRepository.insert(permissions);
-    }
-  }
-
-  // ============ 用户间权限管理 ============
-
-  /**
-   * 获取用户有权访问的其他用户列表
-   * 响应字段名保持 targetUserId
-   */
-  async getAccessibleTargetUsers(userGuid: string): Promise<string[]> {
-    const permissions = await this.userUserPermissionRepository.find({
-      where: { userGuid },
-      select: ['targetUserGuid'],
-    });
-    return permissions.map(p => p.targetUserGuid);
-  }
-
-  /**
-   * 添加用户间权限
-   * 请求字段名 userId/targetUserId 映射到数据库字段 userGuid/targetUserGuid
-   */
-  async addUserUserPermission(dto: AddUserUserPermissionDto): Promise<void> {
-    // 检查用户是否存在
-    const [user, targetUser] = await Promise.all([
-      this.userRepository.findOne({ where: { guid: dto.userId } }),
-      this.userRepository.findOne({ where: { guid: dto.targetUserId } }),
-    ]);
-    if (!user || !targetUser) {
-      throw new NotFoundException('用户不存在');
-    }
-
-    // 不能给自己授权
-    if (dto.userId === dto.targetUserId) {
-      throw new BadRequestException('不能给自己授权');
-    }
-
-    // 检查权限是否已存在
-    const existing = await this.userUserPermissionRepository.findOne({
-      where: { userGuid: dto.userId, targetUserGuid: dto.targetUserId },
-    });
-    if (existing) {
-      return; // 权限已存在
-    }
-
-    const permission = this.userUserPermissionRepository.create({
-      userGuid: dto.userId,        // 映射: userId -> userGuid
-      targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-    });
-    await this.userUserPermissionRepository.save(permission);
-  }
-
-  /**
-   * 移除用户间权限
-   */
-  async removeUserUserPermission(userId: string, targetUserId: string): Promise<void> {
-    await this.userUserPermissionRepository.delete({
-      userGuid: userId,        // 参数名 userId 实际是 userGuid
-      targetUserGuid: targetUserId,  // 参数名 targetUserId 实际是 targetUserGuid
-    });
-  }
-
-  /**
-   * 批量设置用户权限
-   * 请求字段名 targetUserId/userIds 映射到数据库字段 targetUserGuid/userGuids
-   */
-  async setUserPermissions(dto: SetUserPermissionsDto): Promise<void> {
-    // 检查目标用户是否存在
-    const targetUser = await this.userRepository.findOne({ where: { guid: dto.targetUserId } });
-    if (!targetUser) {
-      throw new NotFoundException('目标用户不存在');
-    }
-
-    // 删除现有关联
-    await this.userUserPermissionRepository.delete({
-      targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-    });
-
-    // 添加新关联
-    if (dto.userIds.length > 0) {
-      const permissions = dto.userIds
-        .filter(userId => userId !== dto.targetUserId) // 排除自己
-        .map(userId => ({
-          userGuid: userId,              // 映射: userId -> userGuid
-          targetUserGuid: dto.targetUserId,  // 映射: targetUserId -> targetUserGuid
-        }));
-      if (permissions.length > 0) {
-        await this.userUserPermissionRepository.insert(permissions);
-      }
-    }
   }
 
   /**

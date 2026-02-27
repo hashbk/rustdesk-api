@@ -111,17 +111,6 @@ export class TokenService {
   }
 
   /**
-   * 撤销用户的所有 Token
-   * @param userGuid 用户唯一标识符
-   */
-  async revokeAllTokens(userGuid: string): Promise<void> {
-    await this.tokenRepository.update(
-      { userGuid, isRevoked: false },
-      { isRevoked: true },
-    );
-  }
-
-  /**
    * 撤销设备的所有 Token
    * @param userGuid 用户唯一标识符
    * @param deviceId 设备ID
