@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { DeviceGroupService } from '../modules/device-group/device-group.service';
+import { DeviceGroupService } from '../modules/device-group/services';
 import { PeerService } from '../modules/device-group/peer.service';
 import { UserService } from '../modules/user/user.service';
 import { OidcService } from '../modules/oidc/oidc.service';

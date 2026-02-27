@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DeviceGroupController } from './device-group.controller';
-import { DeviceGroupService } from './device-group.service';
+import { DeviceGroupService, DeviceGroupCoreService, DeviceGroupPermissionService } from './services';
 import { PeerService } from './peer.service';
 import { DeviceGroup } from './entities/device-group.entity';
 import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
@@ -23,7 +23,12 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [DeviceGroupController],
-  providers: [DeviceGroupService, PeerService],
+  providers: [
+    DeviceGroupService,
+    DeviceGroupCoreService,
+    DeviceGroupPermissionService,
+    PeerService,
+  ],
   exports: [DeviceGroupService, PeerService],
 })
 export class DeviceGroupModule {}
