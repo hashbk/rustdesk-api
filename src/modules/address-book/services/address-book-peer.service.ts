@@ -6,6 +6,23 @@ import { AddressBook, AddressBookPeer, AddressBookPeerTag, ShareRule } from '../
 import { AddPeerDto, UpdatePeerDto, PeersQueryDto } from '../dto';
 import { Sysinfo, Peer } from '../../../common/entities';
 
+/**
+ * 地址簿设备服务
+ * 负责地址簿中设备的管理，包括设备的增删改查
+ * 
+ * 功能：
+ * - 获取地址簿中的设备列表（包含设备详细信息）
+ * - 添加设备到地址簿
+ * - 更新设备信息
+ * - 删除设备
+ * - 设备标签关联管理
+ * 
+ * 数据关联：
+ * - AddressBookPeer: 存储地址簿中的设备记录
+ * - Peer: 存储设备基础信息（uuid, id等）
+ * - Sysinfo: 存储设备系统信息（hostname, os等）
+ * - AddressBookPeerTag: 存储设备与标签的关联关系
+ */
 @Injectable()
 export class AddressBookPeerService {
   constructor(
@@ -23,8 +40,19 @@ export class AddressBookPeerService {
 
   /**
    * 获取地址簿中的设备列表
+   * 查询指定地址簿中的所有设备，并关联查询设备详细信息和系统信息
+   * 
+   * @param query 查询参数，包含分页和地址簿GUID
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 设备列表和总数
+   * @throws NotFoundException 当地址簿不存在时抛出
    */
-  async getPeers(query: PeersQueryDto, userId?: string, checkAccess?: (ab: string, userId: string, rule: ShareRule) => Promise<AddressBook>) {
+  async getPeers(
+    query: PeersQueryDto,
+    userId?: string,
+    checkAccess?: (ab: string, userId: string, rule: ShareRule) => Promise<AddressBook>,
+  ) {
     const { current = 1, pageSize = 100, ab } = query;
     const skip = (current - 1) * pageSize;
 
@@ -67,6 +95,7 @@ export class AddressBookPeerService {
       : [];
     const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
+    // 组装返回数据
     const data = peers.map(p => {
       const peerRecord = peerMap.get(p.deviceId);
       const sysinfo = sysinfoMap.get(p.deviceId);
@@ -88,6 +117,16 @@ export class AddressBookPeerService {
 
   /**
    * 添加设备到地址簿
+   * 将设备添加到指定地址簿，支持关联标签
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param dto 设备信息DTO，包含设备ID、密码、别名、标签等
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @param getOrCreateTag 获取或创建标签的函数（可选）
+   * @returns 操作结果
+   * @throws NotFoundException 当地址簿或设备不存在时抛出
+   * @throws BadRequestException 当设备已存在于地址簿中时抛出
    */
   async addPeer(
     addressBookGuid: string,
@@ -129,6 +168,7 @@ export class AddressBookPeerService {
       throw new BadRequestException('设备已存在于地址簿中');
     }
 
+    // 创建设备记录
     const peerGuid = uuidv4();
     const peer = this.addressBookPeerRepository.create({
       guid: peerGuid,
@@ -158,7 +198,16 @@ export class AddressBookPeerService {
   }
 
   /**
-   * 更新设备信息
+   * 更新地址簿中的设备信息
+   * 更新设备的密码、别名、备注和标签关联
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param dto 设备更新信息DTO
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @param getOrCreateTag 获取或创建标签的函数（可选）
+   * @returns 操作结果
+   * @throws NotFoundException 当设备不存在时抛出
    */
   async updatePeer(
     addressBookGuid: string,
@@ -192,6 +241,7 @@ export class AddressBookPeerService {
       throw new NotFoundException('设备不存在于此地址簿');
     }
 
+    // 构建更新数据
     const updateData: Partial<AddressBookPeer> = {};
 
     if (dto.hash !== undefined) updateData.hash = dto.hash;
@@ -223,7 +273,15 @@ export class AddressBookPeerService {
   }
 
   /**
-   * 删除设备
+   * 从地址簿中删除设备
+   * 批量删除指定地址簿中的设备，同时删除标签关联
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param ids 要删除的设备ID列表（RustDesk ID）
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 操作结果
+   * @throws BadRequestException 当未提供设备ID时抛出
    */
   async deletePeers(
     addressBookGuid: string,
@@ -248,7 +306,7 @@ export class AddressBookPeerService {
     const deviceIds = peerRecords.map(p => p.uuid);
 
     if (deviceIds.length > 0) {
-      // 根据 deviceId 删除
+      // 根据 deviceId 删除（会自动级联删除标签关联）
       await this.addressBookPeerRepository.delete({
         deviceId: In(deviceIds),
         addressBookGuid,

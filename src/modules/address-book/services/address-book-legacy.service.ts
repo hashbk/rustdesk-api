@@ -5,6 +5,22 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag } from '../entities';
 import { Sysinfo } from '../../../common/entities';
 
+/**
+ * 地址簿旧版兼容服务
+ * 提供旧版RustDesk客户端的API兼容支持
+ * 
+ * 功能：
+ * - 获取旧版地址簿数据（兼容旧版客户端格式）
+ * - 更新旧版地址簿数据（支持双重JSON编码）
+ * 
+ * 兼容性说明：
+ * 旧版客户端使用不同的数据格式，本服务负责新旧格式之间的转换
+ * 返回格式与旧版客户端保持一致，确保平滑升级
+ * 
+ * 数据格式：
+ * - 旧版格式：使用双重JSON编码
+ * - 新版格式：使用关系型数据库存储
+ */
 @Injectable()
 export class AddressBookLegacyService {
   constructor(
@@ -21,8 +37,17 @@ export class AddressBookLegacyService {
   ) {}
 
   /**
-   * 获取旧版地址簿
-   * 返回格式兼容旧版 RustDesk 客户端
+   * 获取旧版地址簿数据
+   * 返回格式兼容旧版RustDesk客户端
+   * 
+   * 数据格式说明：
+   * - 如果地址簿为空，返回字符串 "null"
+   * - 如果地址簿有数据，返回对象包含：
+   *   - licensed_devices: 许可设备数量
+   *   - data: JSON字符串，包含tags、peers、tag_colors
+   * 
+   * @param userId 用户ID
+   * @returns 旧版地址簿数据（字符串或对象）
    */
   async getLegacyAddressBook(userId: string) {
     // 获取用户的个人地址簿
@@ -101,8 +126,25 @@ export class AddressBookLegacyService {
   }
 
   /**
-   * 更新旧版地址簿
-   * 接收双重 JSON 编码的数据
+   * 更新旧版地址簿数据
+   * 接收双重JSON编码的数据，并更新到数据库
+   * 
+   * 数据格式说明：
+   * 输入数据包含：
+   * - tags: 标签名称数组
+   * - peers: 设备数组，每个设备包含id、hash、username、hostname、platform、alias、tags
+   * - tag_colors: JSON字符串，包含标签颜色映射
+   * 
+   * 处理逻辑：
+   * 1. 解析双重JSON编码的数据
+   * 2. 删除现有所有标签和设备
+   * 3. 根据新数据创建标签和设备
+   * 4. 建立设备与标签的关联关系
+   * 
+   * @param userId 用户ID
+   * @param data 双重JSON编码的地址簿数据
+   * @returns 操作结果（字符串 "null"）
+   * @throws BadRequestException 当JSON数据无效时抛出
    */
   async updateLegacyAddressBook(userId: string, data: string) {
     if (!data) {

@@ -5,6 +5,24 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookTag, AddressBookPeerTag, ShareRule } from '../entities';
 import { AddTagDto, UpdateTagDto, RenameTagDto } from '../dto';
 
+/**
+ * 地址簿标签服务
+ * 负责地址簿中标签的管理，包括标签的增删改查
+ * 
+ * 功能：
+ * - 获取地址簿标签列表
+ * - 添加标签
+ * - 重命名标签
+ * - 更新标签颜色
+ * - 删除标签
+ * - 获取或创建标签（用于设备标签关联）
+ * 
+ * 标签特性：
+ * - 标签属于特定地址簿
+ * - 标签可以关联多个设备
+ * - 标签具有颜色属性，用于UI显示
+ * - 删除标签会自动删除所有设备与该标签的关联
+ */
 @Injectable()
 export class AddressBookTagService {
   constructor(
@@ -18,6 +36,12 @@ export class AddressBookTagService {
 
   /**
    * 获取地址簿标签列表
+   * 查询指定地址簿中的所有标签
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 标签列表，包含标签名称和颜色
    */
   async getTags(
     addressBookGuid: string,
@@ -40,7 +64,13 @@ export class AddressBookTagService {
   }
 
   /**
-   * 获取或创建标签，返回标签GUID
+   * 获取或创建标签
+   * 查找指定名称的标签，如果不存在则创建
+   * 主要用于设备添加/更新时的标签关联
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param tagName 标签名称
+   * @returns 标签GUID
    */
   async getOrCreateTag(addressBookGuid: string, tagName: string): Promise<string> {
     let tag = await this.addressBookTagRepository.findOne({
@@ -48,6 +78,7 @@ export class AddressBookTagService {
     });
 
     if (!tag) {
+      // 标签不存在，创建新标签
       tag = this.addressBookTagRepository.create({
         guid: uuidv4(),
         addressBookGuid,
@@ -62,6 +93,15 @@ export class AddressBookTagService {
 
   /**
    * 添加标签
+   * 向指定地址簿添加新标签
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param dto 标签信息DTO，包含标签名称和颜色
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 操作结果
+   * @throws NotFoundException 当地址簿不存在时抛出
+   * @throws BadRequestException 当标签已存在时抛出
    */
   async addTag(
     addressBookGuid: string,
@@ -82,6 +122,7 @@ export class AddressBookTagService {
       throw new NotFoundException('地址簿不存在');
     }
 
+    // 检查标签是否已存在
     const existingTag = await this.addressBookTagRepository.findOne({
       where: { name: dto.name, addressBookGuid },
     });
@@ -90,6 +131,7 @@ export class AddressBookTagService {
       throw new BadRequestException('标签已存在');
     }
 
+    // 创建新标签
     const tag = this.addressBookTagRepository.create({
       guid: uuidv4(),
       addressBookGuid,
@@ -103,6 +145,15 @@ export class AddressBookTagService {
 
   /**
    * 重命名标签
+   * 修改标签的名称，同时检查新名称是否冲突
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param dto 重命名信息DTO，包含旧标签名和新标签名
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 操作结果
+   * @throws NotFoundException 当旧标签不存在时抛出
+   * @throws BadRequestException 当新标签名已存在时抛出
    */
   async renameTag(
     addressBookGuid: string,
@@ -124,6 +175,7 @@ export class AddressBookTagService {
       throw new NotFoundException('标签不存在');
     }
 
+    // 检查新标签名是否已存在
     const existingTag = await this.addressBookTagRepository.findOne({
       where: { name: dto.new, addressBookGuid },
     });
@@ -132,12 +184,21 @@ export class AddressBookTagService {
       throw new BadRequestException('新标签名已存在');
     }
 
+    // 更新标签名称
     await this.addressBookTagRepository.update({ guid: tag.guid }, { name: dto.new });
     return {};
   }
 
   /**
    * 更新标签颜色
+   * 修改标签的颜色属性，用于UI显示
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param dto 标签更新信息DTO，包含标签名和新颜色
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 操作结果
+   * @throws NotFoundException 当标签不存在时抛出
    */
   async updateTag(
     addressBookGuid: string,
@@ -159,12 +220,21 @@ export class AddressBookTagService {
       throw new NotFoundException('标签不存在');
     }
 
+    // 更新标签颜色
     await this.addressBookTagRepository.update({ guid: tag.guid }, { color: dto.color });
     return {};
   }
 
   /**
    * 删除标签
+   * 批量删除指定地址簿中的标签，同时删除所有设备与这些标签的关联
+   * 
+   * @param addressBookGuid 地址簿GUID
+   * @param names 要删除的标签名称列表
+   * @param userId 用户ID（可选，用于权限验证）
+   * @param checkAccess 权限检查函数（可选）
+   * @returns 操作结果
+   * @throws BadRequestException 当未提供标签名称时抛出
    */
   async deleteTags(
     addressBookGuid: string,
@@ -188,7 +258,7 @@ export class AddressBookTagService {
 
     const tagGuids = tags.map(t => t.guid);
 
-    // 删除标签关联
+    // 先删除标签与设备的关联关系
     if (tagGuids.length > 0) {
       await this.addressBookPeerTagRepository.delete({
         tagGuid: In(tagGuids),
