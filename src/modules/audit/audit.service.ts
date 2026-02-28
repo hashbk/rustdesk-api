@@ -8,6 +8,15 @@ import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
 
+/**
+ * 审计服务
+ * 负责记录和管理系统中的各种审计日志，包括连接、文件操作和告警
+ * 
+ * 功能：
+ * - 记录远程桌面连接审计
+ * - 记录文件传输审计
+ * - 记录安全告警审计
+ */
 @Injectable()
 export class AuditService {
   constructor(
@@ -19,6 +28,13 @@ export class AuditService {
     private readonly alarmAuditRepository: Repository<AlarmAudit>,
   ) {}
 
+  /**
+   * 记录连接审计
+   * 记录远程桌面连接的详细信息，包括连接建立、断开等操作
+   * 
+   * @param dto 连接审计数据
+   * @returns 保存的连接审计记录
+   */
   async auditConnection(dto: ConnectionAuditDto): Promise<ConnectionAudit> {
     // 支持前端发送的下划线格式字段
     const connId = dto.conn_id !== undefined ? String(dto.conn_id) : null;
@@ -48,14 +64,7 @@ export class AuditService {
     });
 
     if (existingConnection) {
-      // 只更新非空且与数据库中储存的值不同的字段
-      if (sessionId !== null && sessionId !== existingConnection.sessionId) {
-        existingConnection.sessionId = sessionId;
-      }
-      if (dto.ip && dto.ip !== existingConnection.ip) {
-        existingConnection.ip = dto.ip;
-      }
-      // 根据不同的 action 更新对应的时间字段
+      // 更新现有连接记录
       if (action === 'open' && !existingConnection.requestedAt) {
         existingConnection.requestedAt = new Date();
       }
@@ -65,7 +74,12 @@ export class AuditService {
       if (action === 'close' && !existingConnection.closedAt) {
         existingConnection.closedAt = new Date();
       }
-      existingConnection.action = action; // action 总是更新
+      if (sessionId !== null && sessionId !== existingConnection.sessionId) {
+        existingConnection.sessionId = sessionId;
+      }
+      if (dto.ip && dto.ip !== existingConnection.ip) {
+        existingConnection.ip = dto.ip;
+      }
       if (dto.peer && dto.peer[0] !== existingConnection.peerId) {
         existingConnection.peerId = dto.peer[0];
       }
@@ -75,6 +89,7 @@ export class AuditService {
       if (dto.type !== undefined && dto.type !== existingConnection.type) {
         existingConnection.type = dto.type;
       }
+      existingConnection.action = action;
       return await this.connectionAuditRepository.save(existingConnection);
     }
 
@@ -97,6 +112,13 @@ export class AuditService {
     return await this.connectionAuditRepository.save(connectionAudit);
   }
 
+  /**
+   * 记录文件审计
+   * 记录文件传输操作的详细信息
+   * 
+   * @param dto 文件审计数据
+   * @returns 保存的文件审计记录
+   */
   async auditFile(dto: FileAuditDto): Promise<FileAudit> {
     // 解析 info JSON 字符串
     let info: { ip: string; name: string; num: number; files: Array<[string, number]> };
@@ -122,6 +144,13 @@ export class AuditService {
     return await this.fileAuditRepository.save(fileAudit);
   }
 
+  /**
+   * 记录告警审计
+   * 记录安全告警的详细信息
+   * 
+   * @param dto 告警审计数据
+   * @returns 保存的告警审计记录
+   */
   async auditAlarm(dto: AlarmAuditDto): Promise<AlarmAudit> {
     // 解析 info JSON 字符串
     let info: { id?: string; ip: string; name?: string };

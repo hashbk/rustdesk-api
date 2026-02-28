@@ -6,17 +6,37 @@ import { v4 as uuidv4 } from 'uuid';
 import { User } from '../../user/entities/user.entity';
 import { UserToken } from '../../user/entities/user-token.entity';
 
+/**
+ * JWT负载接口
+ * 定义JWT令牌中包含的用户信息
+ */
 export interface JwtPayload {
+  /** 用户GUID */
   sub: string;
+  /** 用户名 */
   username: string;
+  /** 邮箱地址 */
   email?: string;
+  /** 是否为管理员 */
   isAdmin: boolean;
+  /** 设备ID */
   deviceId?: string;
 }
 
+/**
+ * Token服务
+ * 负责JWT Token的生成、验证和撤销管理
+ * 
+ * 功能：
+ * - 生成JWT Token并保存到数据库
+ * - 验证Token的有效性和撤销状态
+ * - 撤销指定的Token
+ * - 撤销设备的所有Token
+ */
 @Injectable()
 export class AuthTokenService {
-  private readonly TOKEN_EXPIRY_DAYS = 30; // Token 有效期 30 天
+  /** Token有效期（天） */
+  private readonly TOKEN_EXPIRY_DAYS = 30;
 
   constructor(
     @InjectRepository(UserToken)
@@ -25,9 +45,16 @@ export class AuthTokenService {
   ) {}
 
   /**
-   * 生成 JWT Token
+   * 生成JWT Token
+   * 创建JWT令牌并将其保存到数据库，用于后续验证和撤销
+   * 
+   * @param user 用户对象
+   * @param deviceId 设备ID（可选）
+   * @param deviceUuid 设备UUID（可选）
+   * @returns 生成的JWT Token字符串
    */
   async generateToken(user: User, deviceId?: string, deviceUuid?: string): Promise<string> {
+    // 构建JWT负载
     const payload: JwtPayload = {
       sub: user.guid,
       username: user.username,
@@ -36,12 +63,14 @@ export class AuthTokenService {
       deviceId,
     };
 
+    // 签名生成JWT Token
     const token = this.jwtService.sign(payload);
 
-    // 保存 Token 到数据库
+    // 计算Token过期时间
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
 
+    // 保存Token记录到数据库
     const userToken = this.tokenRepository.create({
       guid: uuidv4(),
       userGuid: user.guid,
@@ -57,13 +86,18 @@ export class AuthTokenService {
   }
 
   /**
-   * 验证 JWT Token
+   * 验证JWT Token
+   * 验证Token的签名和有效期，并检查是否已被撤销
+   * 
+   * @param token JWT令牌字符串
+   * @returns Token负载，验证失败或Token已撤销返回null
    */
   async validateToken(token: string): Promise<JwtPayload | null> {
     try {
+      // 验证Token签名和有效期
       const payload = this.jwtService.verify<JwtPayload>(token);
 
-      // 检查 Token 是否被撤销
+      // 检查Token是否被撤销
       const tokenRecord = await this.tokenRepository.findOne({
         where: { token, isRevoked: false },
       });
@@ -74,12 +108,17 @@ export class AuthTokenService {
 
       return payload;
     } catch (error) {
+      // Token无效或已过期
       return null;
     }
   }
 
   /**
-   * 撤销 Token
+   * 撤销指定的Token
+   * 将Token标记为已撤销，使其无法再用于认证
+   * 
+   * @param userGuid 用户GUID
+   * @param token 要撤销的Token字符串
    */
   async revokeToken(userGuid: string, token: string): Promise<void> {
     await this.tokenRepository.update(
@@ -89,7 +128,12 @@ export class AuthTokenService {
   }
 
   /**
-   * 撤销用户设备的所有 Token
+   * 撤销用户设备的所有Token
+   * 撤销指定设备的所有Token，通常在用户登出或设备移除时调用
+   * 
+   * @param userGuid 用户GUID
+   * @param deviceId 设备ID（可选）
+   * @param deviceUuid 设备UUID（可选）
    */
   async revokeDeviceTokens(userGuid: string, deviceId?: string, deviceUuid?: string): Promise<void> {
     if (!deviceId && !deviceUuid) return;

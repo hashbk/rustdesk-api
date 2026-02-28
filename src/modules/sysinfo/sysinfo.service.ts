@@ -7,6 +7,16 @@ import { SysinfoDto } from './dto/sysinfo.dto';
 import { AddressBook, AddressBookPeer, AddressBookTag } from '../address-book/entities';
 import { DeviceGroup } from '../device-group/entities/device-group.entity';
 
+/**
+ * 系统信息服务
+ * 负责处理设备的系统信息提交和管理
+ * 
+ * 功能：
+ * - 接收和存储设备系统信息
+ * - 处理预设地址簿配置
+ * - 处理预设设备组配置
+ * - 自动添加设备到预设地址簿和设备组
+ */
 @Injectable()
 export class SysinfoService {
   private readonly logger = new Logger(SysinfoService.name);
@@ -26,8 +36,15 @@ export class SysinfoService {
     private peerRepository: Repository<Peer>,
   ) {}
 
+  /**
+   * 创建或更新系统信息
+   * 接收设备上报的系统信息，存储或更新到数据库
+   * 
+   * @param sysinfoDto 系统信息数据
+   * @returns 保存的系统信息记录
+   */
   async createSysinfo(sysinfoDto: SysinfoDto): Promise<Sysinfo> {
-    // 根据 uuid 查找是否已存在记录
+    // 根据uuid查找是否已存在记录
     const existingSysinfo = await this.sysinfoRepository.findOne({
       where: { uuid: sysinfoDto.uuid },
     });
@@ -106,7 +123,11 @@ export class SysinfoService {
   }
 
   /**
-   * 处理预设设置：自动添加设备到地址簿和设备组
+   * 处理预设设置
+   * 根据预设配置自动添加设备到地址簿和设备组
+   * 
+   * @param sysinfo 系统信息对象
+   * @private
    */
   private async processPresetSettings(sysinfo: Sysinfo): Promise<void> {
     try {
@@ -126,6 +147,10 @@ export class SysinfoService {
 
   /**
    * 将设备添加到预设地址簿
+   * 根据预设配置自动将设备添加到指定的地址簿
+   * 
+   * @param sysinfo 系统信息对象
+   * @private
    */
   private async addToAddressBook(sysinfo: Sysinfo): Promise<void> {
     // 查找或创建地址簿
@@ -134,7 +159,7 @@ export class SysinfoService {
     });
 
     if (!addressBook) {
-      // 如果地址簿不存在，创建一个新的（需要指定所有者，这里使用系统默认）
+      // 如果地址簿不存在，跳过添加
       this.logger.warn(`预设地址簿 "${sysinfo.presetAddressBookName}" 不存在，跳过添加设备`);
       return;
     }
@@ -190,6 +215,10 @@ export class SysinfoService {
 
   /**
    * 将设备添加到预设设备组
+   * 根据预设配置自动将设备关联到指定的设备组
+   * 
+   * @param sysinfo 系统信息对象
+   * @private
    */
   private async addToDeviceGroup(sysinfo: Sysinfo): Promise<void> {
     // 查找设备组

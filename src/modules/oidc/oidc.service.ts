@@ -10,40 +10,85 @@ import { UserToken } from '../user/entities/user-token.entity';
 import { OidcAuthRequestDto } from './dto/oidc.dto';
 import * as bcrypt from 'bcryptjs';
 
+/**
+ * OIDC配置接口
+ * 定义OIDC提供商的配置信息
+ */
 export interface OidcConfig {
+  /** 提供商名称 */
   name: string;
+  /** 发行者URL */
   issuer: string;
+  /** 客户端ID */
   client_id: string;
+  /** 回调URI */
   redirect_uri?: string;
+  /** 授权范围 */
   scope?: string;
 }
 
+/**
+ * OIDC授权URL响应接口
+ * 定义授权请求成功后返回的数据
+ */
 export interface OidcAuthUrlResponse {
+  /** 授权码 */
   code: string;
+  /** 授权URL */
   url: string;
 }
 
+/**
+ * 认证响应体接口
+ * 定义认证成功后返回的用户信息和令牌
+ */
 export interface AuthBody {
+  /** 访问令牌 */
   access_token: string;
+  /** 响应类型 */
   type: string;
+  /** TFA类型 */
   tfa_type?: string;
+  /** 密钥 */
   secret?: string;
+  /** 用户信息 */
   user: {
+    /** 用户名 */
     name: string;
+    /** 邮箱 */
     email?: string;
+    /** 备注 */
     note?: string;
+    /** 状态 */
     status: number;
+    /** 用户信息 */
     info?: UserInfo;
+    /** 是否管理员 */
     is_admin: boolean;
+    /** 第三方认证类型 */
     third_auth_type?: string;
   };
 }
 
+/**
+ * OIDC服务
+ * 负责处理OpenID Connect（OIDC）认证流程
+ * 
+ * 功能：
+ * - 获取启用的OIDC提供商列表
+ * - 处理OIDC授权请求
+ * - 查询OIDC授权状态
+ * - 管理OIDC授权会话
+ * 
+ * 注意：当前实现为简化版本，实际生产环境需要完整实现OIDC协议
+ */
 @Injectable()
 export class OidcService {
   private readonly logger = new Logger(OidcService.name);
-  private readonly AUTH_CODE_EXPIRY_MINUTES = 3; // 授权码有效期 3 分钟
-  private readonly TOKEN_EXPIRY_DAYS = 30; // Token 有效期 30 天
+  /** 授权码有效期（分钟） */
+  private readonly AUTH_CODE_EXPIRY_MINUTES = 3;
+  /** Token有效期（天） */
+  private readonly TOKEN_EXPIRY_DAYS = 30;
 
   constructor(
     @InjectRepository(OidcProvider)
@@ -58,7 +103,10 @@ export class OidcService {
   ) {}
 
   /**
-   * 获取所有启用的 OIDC 提供商
+   * 获取所有启用的OIDC提供商
+   * 返回可供用户选择的OIDC登录选项列表
+   * 
+   * @returns OIDC配置选项列表，格式为 "common-oidc/{config_json}"
    */
   async getLoginOptions(): Promise<string[]> {
     const providers = await this.providerRepository.find({
@@ -76,7 +124,7 @@ export class OidcService {
         scope: provider.scope || 'openid email profile',
       };
 
-      // 使用 common-oidc 格式返回配置
+      // 使用common-oidc格式返回配置
       options.push(`common-oidc/${JSON.stringify(config)}`);
     }
 
@@ -84,13 +132,17 @@ export class OidcService {
   }
 
   /**
-   * 请求 OIDC 授权
-   * POST /api/oidc/auth
+   * 请求OIDC授权
+   * 发起OIDC认证流程，生成授权码和授权URL
+   * 
+   * @param authRequest OIDC授权请求，包含提供商标识和设备信息
+   * @returns 授权码和授权URL
+   * @throws BadRequestException 当提供商不存在或未启用时抛出
    */
   async requestAuth(authRequest: OidcAuthRequestDto): Promise<OidcAuthUrlResponse> {
     const { op, id, uuid, deviceInfo } = authRequest;
 
-    // 解析 OIDC 提供商标识
+    // 解析OIDC 提供商标识
     const providerName = op.replace('oidc/', '');
 
     const provider = await this.providerRepository.findOne({
@@ -104,14 +156,14 @@ export class OidcService {
     // 生成授权码
     const code = uuidv4();
 
-    // 生成 OIDC state 参数
+    // 生成OIDC state参数（用于防止CSRF攻击）
     const state = uuidv4();
 
     // 计算过期时间
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + this.AUTH_CODE_EXPIRY_MINUTES);
 
-    // 构建回调 URL
+    // 构建回调URL
     const redirectUri = `${process.env.OIDC_REDIRECT_URI || 'http://localhost:3000'}/api/oidc/callback`;
 
     // 保存授权状态
@@ -130,7 +182,7 @@ export class OidcService {
 
     await this.authStateRepository.save(authState);
 
-    // 构建授权 URL
+    // 构建授权URL
     const authEndpoint = provider.authorizationEndpoint || `${provider.issuer}/authorize`;
     const scope = provider.scope || 'openid email profile';
 
@@ -150,8 +202,14 @@ export class OidcService {
   }
 
   /**
-   * 查询 OIDC 授权状态
-   * GET /api/oidc/auth-query?code=xxx&id=xxx&uuid=xxx
+   * 查询OIDC授权状态
+   * 查询OIDC授权是否成功，如果成功则返回访问令牌
+   * 
+   * @param code 授权码
+   * @param deviceId 设备ID
+   * @param deviceUuid 设备UUID
+   * @returns 认证响应，包含访问令牌和用户信息
+   * @throws UnauthorizedException 当授权失败、过期或取消时抛出
    */
   async queryAuth(code: string, deviceId: string, deviceUuid: string): Promise<AuthBody> {
     // 查找授权状态
@@ -181,7 +239,7 @@ export class OidcService {
       throw new UnauthorizedException('Authorization cancelled');
     }
 
-    // 授权成功，返回 token
+    // 授权成功，返回token
     if (authState.status === OidcAuthStatus.AUTHORIZED && authState.accessToken) {
       // 获取用户信息
       const user = await this.userRepository.findOne({
@@ -214,7 +272,15 @@ export class OidcService {
   }
 
   /**
-   * 模拟 OIDC code 交换（实际项目中需要实现）
+   * 模拟OIDC code交换
+   * 将授权码交换为用户信息和访问令牌
+   * 
+   * @param provider OIDC提供商配置
+   * @param code 授权码
+   * @param redirectUri 回调URI
+   * @returns 用户信息和访问令牌
+   * @private
+   * @deprecated 此方法为模拟实现，生产环境需要实现真实的OIDC流程
    */
   private async exchangeCodeForUserInfo(
     provider: OidcProvider,
@@ -237,7 +303,14 @@ export class OidcService {
   }
 
   /**
-   * 为用户生成 JWT token 并保存到数据库
+   * 为用户生成JWT token并保存到数据库
+   * 创建JWT令牌并将其持久化，用于后续认证
+   * 
+   * @param user 用户对象
+   * @param deviceId 设备ID（可选）
+   * @param deviceUuid 设备UUID（可选）
+   * @returns 生成的JWT Token字符串
+   * @private
    */
   private async generateTokenForUser(user: User, deviceId?: string, deviceUuid?: string): Promise<string> {
     const payload = {
@@ -250,7 +323,7 @@ export class OidcService {
 
     const token = this.jwtService.sign(payload);
 
-    // 保存 Token 到数据库
+    // 保存Token到数据库
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + this.TOKEN_EXPIRY_DAYS);
 

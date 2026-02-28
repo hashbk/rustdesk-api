@@ -3,6 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Peer } from '../../../common/entities';
 
+/**
+ * 设备管理服务
+ * 负责管理用户设备的绑定和解绑操作
+ * 
+ * 功能：
+ * - 创建或更新设备记录（绑定设备到用户）
+ * - 解除设备与用户的绑定
+ */
 @Injectable()
 export class AuthDeviceService {
   private readonly logger = new Logger(AuthDeviceService.name);
@@ -13,7 +21,13 @@ export class AuthDeviceService {
   ) {}
 
   /**
-   * 创建或更新设备记录（绑定设备到用户）
+   * 创建或更新设备记录
+   * 将设备绑定到用户账户，用于追踪用户的登录设备
+   * 
+   * @param userGuid 用户GUID
+   * @param deviceId 设备ID（可选）
+   * @param deviceUuid 设备UUID
+   * @param deviceInfo 设备信息（可选）
    */
   async createOrUpdateDevice(
     userGuid: string,
@@ -23,21 +37,28 @@ export class AuthDeviceService {
   ): Promise<void> {
     if (!deviceUuid) return;
 
-    // 查找 peer 记录
+    // 查找peer记录
     const peer = await this.peerRepository.findOne({
       where: { uuid: deviceUuid },
     });
 
     if (peer) {
-      // 更新 peer 的 userGuid，绑定设备到用户
+      // 更新peer的userGuid，绑定设备到用户
       peer.userGuid = userGuid;
       await this.peerRepository.save(peer);
+      this.logger.log(`设备 ${deviceUuid} 已绑定到用户 ${userGuid}`);
     }
-    // 如果 peer 不存在，设备会在心跳时自动创建
+    // 如果peer不存在，设备会在心跳时自动创建
   }
 
   /**
    * 解除设备与用户的绑定
+   * 在用户登出时调用，解除设备与用户的关联
+   * 
+   * 安全措施：防止退出登录后设备仍关联用户
+   * 
+   * @param userGuid 用户GUID
+   * @param deviceUuid 设备UUID
    */
   async unbindDevice(userGuid: string, deviceUuid: string): Promise<void> {
     const peer = await this.peerRepository.findOne({

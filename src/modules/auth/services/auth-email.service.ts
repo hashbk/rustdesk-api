@@ -7,26 +7,51 @@ import { EmailVerificationSession } from '../entities/email-verification-session
 import { LoginDto } from '../dto/auth.dto';
 import { EmailService } from '../../email/email.service';
 
+/**
+ * 邮箱登录响应接口
+ * 定义邮箱验证码登录成功后返回的数据结构
+ */
 export interface LoginResponse {
+  /** 访问令牌 */
   access_token?: string;
+  /** 响应类型 */
   type: string;
+  /** TFA类型 */
   tfa_type?: string;
+  /** 密钥 */
   secret?: string;
+  /** 用户信息 */
   user?: {
+    /** 用户名 */
     name: string;
+    /** 邮箱 */
     email?: string;
+    /** 备注 */
     note?: string;
+    /** 状态 */
     status: number;
+    /** 用户信息 */
     info?: UserInfo;
+    /** 是否管理员 */
     is_admin: boolean;
+    /** 第三方认证类型 */
     third_auth_type?: string;
   };
 }
 
+/**
+ * 邮箱验证服务
+ * 负责处理邮箱验证码的生成、发送和验证
+ * 
+ * 功能：
+ * - 发起邮箱验证（生成验证码并发送邮件）
+ * - 处理邮箱验证码登录（第二步验证）
+ */
 @Injectable()
 export class AuthEmailService {
   private readonly logger = new Logger(AuthEmailService.name);
-  private readonly VERIFICATION_CODE_EXPIRY_MINUTES = 5; // 验证码有效期 5 分钟
+  /** 验证码有效期（分钟） */
+  private readonly VERIFICATION_CODE_EXPIRY_MINUTES = 5;
 
   constructor(
     @InjectRepository(EmailVerificationSession)
@@ -37,15 +62,20 @@ export class AuthEmailService {
   ) {}
 
   /**
-   * 发起邮箱验证（生成验证码并发送邮件）
+   * 发起邮箱验证
+   * 生成6位验证码并发送邮件，用于登录的第二步验证
+   * 
+   * @param user 用户对象
+   * @returns 登录响应，包含验证密钥
+   * @throws BadRequestException 当邮件发送失败时抛出
    */
   async initiateEmailVerification(
     user: User,
   ): Promise<LoginResponse> {
-    // 生成 6 位验证码
+    // 生成6位随机验证码
     const code = Math.random().toString().slice(-6);
 
-    // 生成 secret（用于关联两次请求）
+    // 生成secret（用于关联两次请求）
     const secret = uuidv4();
 
     // 计算过期时间
@@ -93,6 +123,14 @@ export class AuthEmailService {
 
   /**
    * 邮箱验证码登录（第二步验证）
+   * 验证用户输入的验证码并完成登录流程
+   * 
+   * @param loginDto 登录信息
+   * @param generateToken Token生成函数
+   * @param createOrUpdateDevice 设备创建/更新函数（可选）
+   * @returns 登录响应
+   * @throws BadRequestException 当验证参数不完整时抛出
+   * @throws UnauthorizedException 当验证失败或用户状态异常时抛出
    */
   async handleEmailCodeLogin(
     loginDto: LoginDto,
@@ -101,6 +139,7 @@ export class AuthEmailService {
   ): Promise<LoginResponse> {
     const { username, verificationCode, secret, id, uuid, deviceInfo } = loginDto;
 
+    // 验证参数完整性
     if (!username || !verificationCode || !secret) {
       throw new BadRequestException('验证参数不完整');
     }
@@ -149,7 +188,7 @@ export class AuthEmailService {
       await createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
-    // 生成 Token
+    // 生成Token
     const token = await generateToken(user, id, uuid);
 
     this.logger.log(`用户 ${user.username} 邮箱验证成功，已登录`);

@@ -8,6 +8,15 @@ import { DeviceGroupUserPermission } from './entities/device-group-user-permissi
 import { UserUserPermission } from './entities/user-user-permission.entity';
 import { PeerQueryDto } from './dto/peer.dto';
 
+/**
+ * 设备服务
+ * 负责设备相关的业务逻辑和权限管理
+ * 
+ * 功能：
+ * - 获取用户可访问的设备列表
+ * - 管理设备权限
+ * - 处理设备在线状态
+ */
 @Injectable()
 export class PeerService {
   constructor(
@@ -27,14 +36,19 @@ export class PeerService {
 
   /**
    * 获取用户可访问的设备列表（分页）
-   * GET /api/peers?current=1&pageSize=100&accessible=&status=1
-   *
+   * 根据用户权限返回可访问的设备列表
+   * 
    * 权限逻辑：
    * 1. 管理员可以看到所有设备
    * 2. 普通用户：
    *    - 用户自己的设备
    *    - 用户有权访问的设备组中的设备
    *    - 用户有权访问的其他用户的设备
+   * 
+   * @param userGuid 用户GUID
+   * @param query 查询参数，包含分页和状态过滤
+   * @param isAdmin 是否为管理员
+   * @returns 设备列表和总数
    */
   async getAccessiblePeers(
     userGuid: string,

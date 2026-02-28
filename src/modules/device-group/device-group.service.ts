@@ -4,6 +4,15 @@ import { Repository, In } from 'typeorm';
 import { DeviceGroup } from './entities/device-group.entity';
 import { User, UserStatus } from '../user/entities/user.entity';
 
+/**
+ * 设备组服务
+ * 负责管理设备组和相关的业务逻辑
+ * 
+ * 功能：
+ * - 获取用户可访问的设备组列表
+ * - 获取用户可访问的用户列表
+ * - 管理设备组权限
+ */
 @Injectable()
 export class DeviceGroupService {
   constructor(
@@ -15,8 +24,12 @@ export class DeviceGroupService {
 
   /**
    * 获取用户可访问的设备组列表（分页）
-   * GET /api/device-group/accessible
-   * 管理员可以看到所有设备组
+   * 管理员可以看到所有设备组，普通用户只能看到有权限的设备组
+   * 
+   * @param userGuid 用户GUID
+   * @param query 查询参数，包含分页信息
+   * @param isAdmin 是否为管理员
+   * @returns 设备组列表和总数
    */
   async getAccessibleDeviceGroups(
     userGuid: string,
@@ -63,6 +76,11 @@ export class DeviceGroupService {
    * 获取可访问的用户列表
    * 包括：自己 + 被授权访问的用户 + 通过设备组授权间接可访问的用户
    * 管理员可以看到所有用户
+   * 
+   * @param userGuid 用户GUID
+   * @param query 查询参数，包含分页和状态过滤
+   * @param isAdmin 是否为管理员
+   * @returns 用户列表和总数
    */
   async getAccessibleUsers(
     userGuid: string,

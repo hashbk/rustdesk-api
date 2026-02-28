@@ -6,22 +6,46 @@ import { User, UserInfo } from '../../user/entities/user.entity';
 import { LoginDto } from '../dto/auth.dto';
 import { JwtPayload } from './auth-token.service';
 
+/**
+ * TFA登录响应接口
+ * 定义双因素认证登录成功后返回的数据结构
+ */
 export interface LoginResponse {
+  /** 访问令牌 */
   access_token?: string;
+  /** 响应类型 */
   type: string;
+  /** TFA类型 */
   tfa_type?: string;
+  /** TFA密钥 */
   secret?: string;
+  /** 用户信息 */
   user?: {
+    /** 用户名 */
     name: string;
+    /** 邮箱 */
     email?: string;
+    /** 备注 */
     note?: string;
+    /** 状态 */
     status: number;
+    /** 用户信息 */
     info?: UserInfo;
+    /** 是否管理员 */
     is_admin: boolean;
+    /** 第三方认证类型 */
     third_auth_type?: string;
   };
 }
 
+/**
+ * 双因素认证服务
+ * 负责处理双因素认证（TFA）相关的验证和登录逻辑
+ * 
+ * 功能：
+ * - 验证TFA验证码
+ * - 处理TFA登录流程
+ */
 @Injectable()
 export class AuthTfaService {
   private readonly logger = new Logger(AuthTfaService.name);
@@ -32,7 +56,12 @@ export class AuthTfaService {
   ) {}
 
   /**
-   * 验证 TFA 验证码
+   * 验证TFA验证码
+   * 使用TOTP算法验证用户输入的验证码是否正确
+   * 
+   * @param secret TFA密钥
+   * @param code 用户输入的验证码
+   * @returns 验证是否成功
    */
   verifyTfaCode(secret: string, code: string): boolean {
     try {
@@ -48,6 +77,14 @@ export class AuthTfaService {
 
   /**
    * 双因素认证登录
+   * 验证TFA验证码并完成登录流程
+   * 
+   * @param loginDto 登录信息
+   * @param generateToken Token生成函数
+   * @param createOrUpdateDevice 设备创建/更新函数（可选）
+   * @returns 登录响应
+   * @throws BadRequestException 当TFA参数不完整时抛出
+   * @throws UnauthorizedException 当验证失败或用户状态异常时抛出
    */
   async handleTfaLogin(
     loginDto: LoginDto,
@@ -56,11 +93,12 @@ export class AuthTfaService {
   ): Promise<LoginResponse> {
     const { username, tfaCode, secret, id, uuid, deviceInfo } = loginDto;
 
+    // 验证参数完整性
     if (!tfaCode || !secret) {
       throw new BadRequestException('双因素认证参数不完整');
     }
 
-    // 验证 TFA 代码
+    // 验证TFA代码
     const isValidTfa = this.verifyTfaCode(secret, tfaCode);
     if (!isValidTfa) {
       throw new UnauthorizedException('双因素认证验证码错误');
@@ -79,7 +117,7 @@ export class AuthTfaService {
       throw new UnauthorizedException('用户不存在');
     }
 
-    // 验证 secret 是否与用户的 tfaSecret 匹配
+    // 验证secret是否与用户的tfaSecret匹配
     if (user.tfaSecret !== secret) {
       throw new UnauthorizedException('双因素认证参数无效');
     }
@@ -94,8 +132,10 @@ export class AuthTfaService {
       await createOrUpdateDevice(user.guid, id, uuid, deviceInfo);
     }
 
-    // 生成 Token
+    // 生成Token
     const token = await generateToken(user, id, uuid);
+
+    this.logger.log(`用户 ${username} TFA认证成功，已登录`);
 
     return {
       access_token: token,
