@@ -9,6 +9,7 @@ import { DeviceGroupModule } from './modules/device-group/device-group.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/oidc/oidc.module';
 import { SysinfoModule } from './modules/sysinfo/sysinfo.module';
+import { VersionCheckModule } from './modules/version-check/version-check.module';
 import { DatabaseModule } from './database/database.module';
 import { Sysinfo, Peer } from './common/entities';
 import { ConnectionAudit } from './modules/audit/entities/connection-audit.entity';
@@ -28,13 +29,14 @@ import { DeviceGroupUserPermission } from './modules/device-group/entities/devic
 import { UserUserPermission } from './modules/device-group/entities/user-user-permission.entity';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { EmailVerificationSession } from './modules/auth/entities/email-verification-session.entity';
+import { Version } from './modules/version-check/entities/version.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission, EmailVerificationSession],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission, EmailVerificationSession, Version],
       synchronize: true,
       logging: false,
     }),
@@ -47,6 +49,7 @@ import { EmailVerificationSession } from './modules/auth/entities/email-verifica
     AuthModule,
     OidcModule,
     SysinfoModule,
+    VersionCheckModule,
   ],
   providers: [
     {
