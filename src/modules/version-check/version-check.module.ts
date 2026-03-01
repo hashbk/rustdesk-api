@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { VersionCheckController } from './version-check.controller';
 import { VersionCheckService } from './version-check.service';
 import { Version } from './entities/version.entity';
+import { ReleaseSyncAuthGuard } from './guards';
 
 /**
  * 版本检查模块
@@ -11,7 +12,7 @@ import { Version } from './entities/version.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([Version])],
   controllers: [VersionCheckController],
-  providers: [VersionCheckService],
+  providers: [VersionCheckService, ReleaseSyncAuthGuard],
   exports: [VersionCheckService],
 })
 export class VersionCheckModule {}
