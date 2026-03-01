@@ -4,6 +4,7 @@ import { VersionCheckController } from './version-check.controller';
 import { VersionCheckService } from './version-check.service';
 import { Version } from './entities/version.entity';
 import { ReleaseSyncAuthGuard } from './guards';
+import { FileStorageService } from './services';
 
 /**
  * 版本检查模块
@@ -12,7 +13,7 @@ import { ReleaseSyncAuthGuard } from './guards';
 @Module({
   imports: [TypeOrmModule.forFeature([Version])],
   controllers: [VersionCheckController],
-  providers: [VersionCheckService, ReleaseSyncAuthGuard],
-  exports: [VersionCheckService],
+  providers: [VersionCheckService, ReleaseSyncAuthGuard, FileStorageService],
+  exports: [VersionCheckService, FileStorageService],
 })
 export class VersionCheckModule {}

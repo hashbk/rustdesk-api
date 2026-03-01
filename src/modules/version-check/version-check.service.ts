@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Version } from './entities/version.entity';
 import { VersionCheckRequestDto, VersionCheckResponseDto, ReleaseSyncRequestDto, ReleaseSyncResponseDto } from './dto';
+import { FileStorageService } from './services';
 
 /**
  * 版本检查服务
@@ -14,6 +15,7 @@ import { VersionCheckRequestDto, VersionCheckResponseDto, ReleaseSyncRequestDto,
  * - 支持版本上下线管理
  * - 记录请求日志
  * - 接收 GitHub Action Release Sync 工具推送的版本信息
+ * - 保存和管理资产文件
  */
 @Injectable()
 export class VersionCheckService {
@@ -22,6 +24,7 @@ export class VersionCheckService {
   constructor(
     @InjectRepository(Version)
     private versionRepository: Repository<Version>,
+    private fileStorageService: FileStorageService,
   ) {}
 
   /**
@@ -182,15 +185,25 @@ export class VersionCheckService {
           // 从文件名解析平台、架构和类型信息
           const parsedInfo = this.parseAssetFilename(asset.name);
 
-          // 保存文件到本地存储（可选）
-          // const savedFilePath = await this.saveAssetFile(asset);
+          // 将 Base64 编码的文件内容转换为 Buffer
+          const fileBuffer = Buffer.from(asset.data, 'base64');
+
+          // 保存文件到本地存储
+          const downloadUrl = await this.fileStorageService.saveFile(
+            version,
+            parsedInfo.os,
+            parsedInfo.arch,
+            asset.name,
+            fileBuffer,
+            asset.content_type
+          );
 
           const versionData = {
             version,
             os: parsedInfo.os,
             arch: parsedInfo.arch,
             typ: parsedInfo.typ,
-            download_url: asset.name, // 这里可以根据实际需求设置下载链接
+            download_url: downloadUrl,
             build_date: Math.floor(Date.now() / 1000), // 使用当前时间作为构建时间
             remarks: request.body || '',
             enabled: true,
@@ -210,13 +223,13 @@ export class VersionCheckService {
             // 更新现有记录
             await this.versionRepository.update(existingVersion.id, versionData);
             this.logger.log(
-              `版本记录已更新: version=${version}, os=${versionData.os}, arch=${versionData.arch}, typ=${versionData.typ}`
+              `版本记录已更新: version=${version}, os=${versionData.os}, arch=${versionData.arch}, typ=${versionData.typ}, download_url=${downloadUrl}`
             );
           } else {
             // 创建新记录
             await this.versionRepository.save(versionData);
             this.logger.log(
-              `新版本记录已创建: version=${version}, os=${versionData.os}, arch=${versionData.arch}, typ=${versionData.typ}`
+              `新版本记录已创建: version=${version}, os=${versionData.os}, arch=${versionData.arch}, typ=${versionData.typ}, download_url=${downloadUrl}`
             );
           }
 
@@ -229,6 +242,10 @@ export class VersionCheckService {
           throw new BadRequestException(`Failed to process asset ${asset.name}: ${error.message}`);
         }
       }
+
+      // 清理旧版本（可选）
+      const keepVersionCount = parseInt(process.env.KEEP_VERSION_COUNT || '10', 10);
+      await this.fileStorageService.cleanOldVersions(keepVersionCount);
 
       const responseTime = Date.now() - startTime;
       this.logger.log(
@@ -316,19 +333,5 @@ export class VersionCheckService {
     }
 
     return { os, arch, typ };
-  }
-
-  /**
-   * 保存资产文件到本地存储（可选实现）
-   *
-   * @param asset 资产文件信息
-   * @returns 保存的文件路径
-   */
-  private async saveAssetFile(asset: any): Promise<string> {
-    // 这里可以实现文件保存逻辑
-    // 例如保存到本地文件系统或上传到对象存储服务（如 AWS S3、MinIO 等）
-    // 目前仅记录日志
-    this.logger.debug(`保存资产文件: ${asset.name}, size=${asset.size} bytes`);
-    return asset.name;
   }
 }

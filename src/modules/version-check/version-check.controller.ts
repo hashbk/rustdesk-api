@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { VersionCheckService } from './version-check.service';
 import { VersionCheckRequestDto, VersionCheckResponseDto, ReleaseSyncRequestDto, ReleaseSyncResponseDto } from './dto';
 import { Public } from '../auth/decorators/public.decorator';
@@ -13,7 +14,7 @@ import { ReleaseSyncAuthGuard } from './guards';
  * - /api/version/release/sync (Release同步，需要Bearer Token认证)
  * 请求方法: POST
  * 访问权限:
- * - /check: 公开访问（无需认证）
+ * - /check: 公开访问（无需认证），速率限制：每分钟 10 次
  * - /release/sync: 需要Bearer Token认证
  */
 @Controller('api/version')
@@ -25,10 +26,13 @@ export class VersionCheckController {
    *
    * 接收客户端上报的设备信息，返回对应平台的最新版本信息
    *
+   * 速率限制: 每分钟 10 次（防止滥用）
+   *
    * @param request 版本检查请求
    * @returns 版本检查响应
    */
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 每分钟 10 次
   @Post('check')
   @HttpCode(HttpStatus.OK)
   async checkVersion(
@@ -50,7 +54,7 @@ export class VersionCheckController {
    * @returns Release 同步响应
    */
   @UseGuards(ReleaseSyncAuthGuard)
-  @Post('release/sync')
+  @Post('upload')
   @HttpCode(HttpStatus.OK)
   async syncRelease(
     @Body() request: ReleaseSyncRequestDto,
