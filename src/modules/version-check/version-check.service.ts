@@ -2,7 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Version } from './entities/version.entity';
-import { VersionCheckRequestDto, VersionCheckResponseDto, ReleaseSyncRequestDto, ReleaseSyncResponseDto } from './dto';
+import { VersionCheckRequestDto, VersionCheckResponseDto, ReleaseSyncResponseDto } from './dto';
 import { FileStorageService } from './services';
 
 /**
@@ -16,6 +16,7 @@ import { FileStorageService } from './services';
  * - 记录请求日志
  * - 接收 GitHub Action Release Sync 工具推送的版本信息
  * - 保存和管理资产文件
+ * - 支持 FormData 上传模式
  */
 @Injectable()
 export class VersionCheckService {
@@ -150,17 +151,25 @@ export class VersionCheckService {
   }
 
   /**
-   * 同步 Release
-   * 接收 GitHub Action Release Sync 工具推送的版本信息并保存到数据库
+   * 上传 Release (FormData 模式)
+   * 接收 multipart/form-data 格式的 Release 上传请求
    *
-   * @param request Release 同步请求
-   * @returns Release 同步响应
+   * @param request FormData 请求
+   * @returns Release 上传响应
    */
-  async syncRelease(request: ReleaseSyncRequestDto): Promise<ReleaseSyncResponseDto> {
+  async uploadRelease(request: {
+    tag: string;
+    name: string;
+    body: string;
+    draft: boolean;
+    prerelease: boolean;
+    metadata: any;
+    files: Express.Multer.File[];
+  }): Promise<ReleaseSyncResponseDto> {
     const startTime = Date.now();
 
     this.logger.log(
-      `收到 Release 同步请求: tag=${request.tag}, name=${request.name}, assets=${request.assets.length}`
+      `收到 Release 上传请求: tag=${request.tag}, name=${request.name}, files=${request.files.length}`
     );
 
     try {
@@ -169,7 +178,7 @@ export class VersionCheckService {
         ? request.tag.substring(1)
         : request.tag;
 
-      // 解析每个资产文件
+      // 解析每个上传的文件
       const processedAssets: Array<{
         version: string;
         os: string;
@@ -180,22 +189,19 @@ export class VersionCheckService {
         remarks: string;
       }> = [];
 
-      for (const asset of request.assets) {
+      for (const file of request.files) {
         try {
           // 从文件名解析平台、架构和类型信息
-          const parsedInfo = this.parseAssetFilename(asset.name);
-
-          // 将 Base64 编码的文件内容转换为 Buffer
-          const fileBuffer = Buffer.from(asset.data, 'base64');
+          const parsedInfo = this.parseAssetFilename(file.originalname);
 
           // 保存文件到本地存储
           const downloadUrl = await this.fileStorageService.saveFile(
             version,
             parsedInfo.os,
             parsedInfo.arch,
-            asset.name,
-            fileBuffer,
-            asset.content_type
+            file.originalname,
+            file.buffer,
+            file.mimetype
           );
 
           const versionData = {
@@ -236,10 +242,10 @@ export class VersionCheckService {
           processedAssets.push(versionData);
         } catch (error) {
           this.logger.error(
-            `处理资产文件失败: ${asset.name}, error=${error.message}`,
+            `处理资产文件失败: ${file.originalname}, error=${error.message}`,
             error.stack
           );
-          throw new BadRequestException(`Failed to process asset ${asset.name}: ${error.message}`);
+          throw new BadRequestException(`Failed to process asset ${file.originalname}: ${error.message}`);
         }
       }
 
@@ -249,26 +255,26 @@ export class VersionCheckService {
 
       const responseTime = Date.now() - startTime;
       this.logger.log(
-        `Release 同步成功: tag=${request.tag}, processed=${processedAssets.length}, response_time=${responseTime}ms`
+        `Release 上传成功: tag=${request.tag}, processed=${processedAssets.length}, response_time=${responseTime}ms`
       );
 
       return {
         success: true,
         release_id: version,
         release_url: `/api/version/check`,
-        message: `Release synchronized successfully with ${processedAssets.length} version(s)`,
+        message: `Release uploaded successfully with ${processedAssets.length} version(s)`,
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
       this.logger.error(
-        `Release 同步失败: tag=${request.tag}, error=${error.message}, response_time=${responseTime}ms`,
+        `Release 上传失败: tag=${request.tag}, error=${error.message}, response_time=${responseTime}ms`,
         error.stack
       );
 
       return {
         success: false,
         error: error.message,
-        message: `Failed to synchronize release: ${error.message}`,
+        message: `Failed to upload release: ${error.message}`,
       };
     }
   }
