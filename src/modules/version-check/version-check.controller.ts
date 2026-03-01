@@ -11,11 +11,11 @@ import { ReleaseSyncAuthGuard } from './guards';
  *
  * 接口路径:
  * - /api/version/check (版本检查，公开访问)
- * - /api/version/release/sync (Release同步，需要Bearer Token认证)
+ * - /api/version/upload (Release同步，需要Bearer Token认证)
  * 请求方法: POST
  * 访问权限:
  * - /check: 公开访问（无需认证），速率限制：每分钟 10 次
- * - /release/sync: 需要Bearer Token认证
+ * - /upload: 需要Bearer Token认证
  */
 @Controller('api/version')
 export class VersionCheckController {
@@ -45,7 +45,7 @@ export class VersionCheckController {
    * 同步 Release
    *
    * 接收 GitHub Action Release Sync 工具推送的版本信息
-   * 符合标准 HTTP API 接口规范：POST /api/version/release/sync
+   * 符合标准 HTTP API 接口规范：POST /api/version/upload
    *
    * 认证方式: Bearer Token
    * 请求头: Authorization: Bearer <token>
