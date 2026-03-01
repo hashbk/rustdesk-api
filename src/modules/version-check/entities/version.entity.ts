@@ -50,7 +50,7 @@ export class Version {
   /**
    * 是否启用（用于版本上下线管理）
    */
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: 'boolean', default: false })
   enabled: boolean;
 
   /**
