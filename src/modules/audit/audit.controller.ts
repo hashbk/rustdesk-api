@@ -1,4 +1,5 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuditService } from './audit.service';
 import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
@@ -12,6 +13,7 @@ export class AuditController {
   // ============ 审计记录接口（客户端调用，保持公开）============
 
   @Public()
+  @Throttle({ default: { limit: 50, ttl: 60000 } })
   @Post('conn')
   async auditConnection(@Body() dto: ConnectionAuditDto) {
     const result = await this.auditService.auditConnection(dto);
@@ -23,6 +25,7 @@ export class AuditController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 50, ttl: 60000 } })
   @Post('file')
   async auditFile(@Body() dto: FileAuditDto) {
     const result = await this.auditService.auditFile(dto);
@@ -34,6 +37,7 @@ export class AuditController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 50, ttl: 60000 } })
   @Post('alarm')
   async auditAlarm(@Body() dto: AlarmAuditDto) {
     const result = await this.auditService.auditAlarm(dto);
