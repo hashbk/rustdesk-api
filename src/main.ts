@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe, Logger, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { join } from 'path';
 import { DownloadThrottleMiddleware } from './common/middleware/download-throttle.middleware';
+import { Stats } from 'fs';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -32,9 +33,14 @@ async function bootstrap() {
   const uploadDir = process.env.UPLOAD_DIR || './uploads';
   app.useStaticAssets(join(__dirname, '..', uploadDir), {
     prefix: '/downloads/',
-    setHeaders: (res, path) => {
+    setHeaders: (res, path: string, stat: Stats) => {
+      // 确保 HEAD 和 GET 请求都返回 Content-Length
+      res.setHeader('Content-Length', stat.size);
+      // 禁用压缩和分块编码，确保返回原始二进制数据
+      res.setHeader('Content-Encoding', 'identity');
+      res.removeHeader('Transfer-Encoding');
       // 设置缓存头
-      res.set('Cache-Control', 'public, max-age=31536000'); // 1年缓存
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
     },
   });
   logger.log(`Static files served from: ${uploadDir} with prefix: /downloads/`);

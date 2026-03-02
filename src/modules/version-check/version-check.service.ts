@@ -79,6 +79,16 @@ export class VersionCheckService {
 
       if (latestVersion) {
         response.download_url = latestVersion.download_url || '';
+
+        // 如果配置了服务器基础 URL，则拼接完整的下载 URL
+        const serverBaseUrl = process.env.SERVER_BASE_URL || '';
+        if (serverBaseUrl && response.download_url) {
+          const baseUrl = serverBaseUrl.endsWith('/')
+            ? serverBaseUrl.slice(0, -1)
+            : serverBaseUrl;
+          response.download_url = `${baseUrl}${response.download_url}`;
+        }
+
         response.version = latestVersion.version || '';
         response.build_date = latestVersion.build_date || 0;
 
