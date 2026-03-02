@@ -36,7 +36,7 @@ export class FileStorageService {
    * 获取允许的文件类型
    */
   private get allowedFileTypes(): Set<string> {
-    const types = process.env.ALLOWED_FILE_TYPES || 'exe,dmg,deb,rpm,apk,ipa,zip,tar,gz';
+    const types = process.env.ALLOWED_FILE_TYPES || 'exe,dmg,deb,rpm,apk,ipa,zip,tar,gz,msi';
     return new Set(types.split(',').map(t => t.toLowerCase().trim()));
   }
 
