@@ -212,7 +212,7 @@ export class VersionCheckService {
             download_url: downloadUrl,
             build_date: Math.floor(Date.now() / 1000), // 使用当前时间作为构建时间
             remarks: request.body || '',
-            enabled: true,
+            enabled: false, // 默认新版本为禁用状态，管理员需要手动启用
           };
 
           // 检查是否已存在相同版本的记录
