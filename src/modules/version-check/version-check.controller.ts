@@ -18,7 +18,7 @@ import { ReleaseSyncAuthGuard } from './guards';
  * - /check: 公开访问（无需认证），速率限制：每分钟 10 次
  * - /upload: 需要Bearer Token认证
  */
-@Controller('api/version')
+@Controller('version')
 export class VersionCheckController {
   constructor(private readonly versionCheckService: VersionCheckService) {}
 
@@ -69,6 +69,7 @@ export class VersionCheckController {
    * @param files 上传的文件列表
    * @returns Release 上传响应
    */
+  @Public()
   @UseGuards(ReleaseSyncAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10))
   @Post('upload')

@@ -11,7 +11,7 @@ import { Public } from '../auth/decorators/public.decorator';
  * 请求方法: POST
  * 访问权限: 公开访问（无需认证）
  */
-@Controller('api/temporary-password')
+@Controller('temporary-password')
 export class TemporaryPasswordController {
   constructor(private readonly temporaryPasswordService: TemporaryPasswordService) {}
 
