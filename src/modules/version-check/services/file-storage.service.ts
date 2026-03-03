@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 /**
  * 文件存储服务
  * 负责管理本地文件系统的文件存储
+ * 支持多发布类型(typ)
  */
 @Injectable()
 export class FileStorageService {
@@ -69,19 +70,19 @@ export class FileStorageService {
   /**
    * 生成文件存储路径
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
    * @returns 完整的文件路径
    */
   generateFilePath(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string
   ): string {
-    const versionDir = version.startsWith('v') ? version : `v${version}`;
+    const versionDir = tag.startsWith('v') ? tag : `v${tag}`;
 
     // 移动平台不需要架构目录
     const pathSegments = ['releases', versionDir, os.toLowerCase()];
@@ -96,19 +97,19 @@ export class FileStorageService {
   /**
    * 生成下载 URL
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
    * @returns 下载 URL
    */
   generateDownloadUrl(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string
   ): string {
-    const versionDir = version.startsWith('v') ? version : `v${version}`;
+    const versionDir = tag.startsWith('v') ? tag : `v${tag}`;
 
     const pathSegments = ['releases', versionDir, os.toLowerCase()];
     if (!['android', 'ios'].includes(os.toLowerCase())) {
@@ -122,7 +123,7 @@ export class FileStorageService {
   /**
    * 保存文件
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
@@ -131,7 +132,7 @@ export class FileStorageService {
    * @returns 下载 URL
    */
   async saveFile(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string,
@@ -139,7 +140,7 @@ export class FileStorageService {
     contentType: string
   ): Promise<string> {
     this.logger.debug(
-      `开始保存文件: version=${version}, os=${os}, arch=${arch}, filename=${filename}, size=${buffer.length} bytes`
+      `开始保存文件: tag=${tag}, os=${os}, arch=${arch}, filename=${filename}, size=${buffer.length} bytes`
     );
 
     // 验证文件大小
@@ -157,8 +158,7 @@ export class FileStorageService {
       );
     }
 
-    // 生成文件路径
-    const filePath = this.generateFilePath(version, os, arch, filename);
+    const filePath = this.generateFilePath(tag, os, arch, filename);
 
     try {
       // 确保目录存在
@@ -172,8 +172,7 @@ export class FileStorageService {
       await fs.writeFile(filePath, buffer);
       this.logger.log(`文件已保存: ${filePath} (${buffer.length} bytes)`);
 
-      // 生成下载 URL
-      const downloadUrl = this.generateDownloadUrl(version, os, arch, filename);
+      const downloadUrl = this.generateDownloadUrl(tag, os, arch, filename);
       this.logger.debug(`下载 URL: ${downloadUrl}`);
 
       return downloadUrl;
@@ -186,18 +185,18 @@ export class FileStorageService {
   /**
    * 删除文件
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
    */
   async deleteFile(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string
   ): Promise<void> {
-    const filePath = this.generateFilePath(version, os, arch, filename);
+    const filePath = this.generateFilePath(tag, os, arch, filename);
 
     try {
       if (existsSync(filePath)) {
@@ -215,38 +214,38 @@ export class FileStorageService {
   /**
    * 检查文件是否存在
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
    * @returns 文件是否存在
    */
   async fileExists(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string
   ): Promise<boolean> {
-    const filePath = this.generateFilePath(version, os, arch, filename);
+    const filePath = this.generateFilePath(tag, os, arch, filename);
     return existsSync(filePath);
   }
 
   /**
    * 获取文件大小
    *
-   * @param version 版本号
+   * @param tag 标签(包含版本号和typ,如 "1.4.4-public")
    * @param os 操作系统
    * @param arch 架构
    * @param filename 文件名
    * @returns 文件大小（字节）
    */
   async getFileSize(
-    version: string,
+    tag: string,
     os: string,
     arch: string,
     filename: string
   ): Promise<number> {
-    const filePath = this.generateFilePath(version, os, arch, filename);
+    const filePath = this.generateFilePath(tag, os, arch, filename);
 
     try {
       const stats = await fs.stat(filePath);
@@ -296,6 +295,27 @@ export class FileStorageService {
   }
 
   /**
+   * 比较语义化版本号
+   *
+   * @param a 版本号 A
+   * @param b 版本号 B
+   * @returns 比较结果: 负数表示 a < b, 0 表示 a == b, 正数表示 a > b
+   */
+  private compareSemver(a: string, b: string): number {
+    const parse = (v: string) => {
+      const [major, minor, patch] = v.split('.').map(Number);
+      return { major, minor, patch };
+    };
+
+    const va = parse(a);
+    const vb = parse(b);
+
+    if (va.major !== vb.major) return va.major - vb.major;
+    if (va.minor !== vb.minor) return va.minor - vb.minor;
+    return va.patch - vb.patch;
+  }
+
+  /**
    * 清理旧版本
    * 保留指定数量的最新版本，删除旧版本的文件
    *
@@ -311,8 +331,15 @@ export class FileStorageService {
 
       const versions = await fs.readdir(releasesDir);
 
-      // 按版本号排序（假设版本号格式为 v1.0.0）
-      versions.sort((a, b) => b.localeCompare(a));
+      versions.sort((a, b) => {
+        const versionA = a.startsWith('v') ? a.slice(1) : a;
+        const versionB = b.startsWith('v') ? b.slice(1) : b;
+
+        const pureA = versionA.split('-').slice(0, -1).join('-');
+        const pureB = versionB.split('-').slice(0, -1).join('-');
+
+        return this.compareSemver(pureB, pureA);
+      });
 
       // 删除超过保留数量的旧版本
       const versionsToDelete = versions.slice(keepCount);

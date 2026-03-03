@@ -17,6 +17,7 @@ import { FileStorageService } from './services';
  * - 接收 GitHub Action Release Sync 工具推送的版本信息
  * - 保存和管理资产文件
  * - 支持 FormData 上传模式
+ * - 支持多发布类型(typ)
  */
 @Injectable()
 export class VersionCheckService {
@@ -43,33 +44,44 @@ export class VersionCheckService {
     );
 
     try {
-      // 构建查询条件
-      const whereCondition: any = {
-        enabled: true,
-      };
+      const typ = request.typ || 'public';
 
-      // 添加平台条件（如果提供）
-      if (request.os && request.os !== '') {
-        whereCondition.os = request.os.toLowerCase();
-      }
-
-      // 添加架构条件（如果提供）
-      if (request.arch && request.arch !== '') {
-        whereCondition.arch = request.arch.toLowerCase();
-      }
-
-      // 添加客户端类型条件（如果提供）
-      if (request.typ && request.typ !== '') {
-        whereCondition.typ = request.typ;
-      }
-
-      // 查询匹配的最新版本
-      const latestVersion = await this.versionRepository.findOne({
-        where: whereCondition,
+      let latestVersion = await this.versionRepository.findOne({
+        where: {
+          enabled: true,
+          typ: typ,
+          os: request.os ? request.os.toLowerCase() : '',
+          arch: request.arch ? request.arch.toLowerCase() : '',
+        },
         order: {
           created_at: 'DESC',
         },
       });
+
+      if (!latestVersion && request.os) {
+        latestVersion = await this.versionRepository.findOne({
+          where: {
+            enabled: true,
+            typ: typ,
+            os: request.os.toLowerCase(),
+          },
+          order: {
+            created_at: 'DESC',
+          },
+        });
+      }
+
+      if (!latestVersion) {
+        latestVersion = await this.versionRepository.findOne({
+          where: {
+            enabled: true,
+            typ: typ,
+          },
+          order: {
+            created_at: 'DESC',
+          },
+        });
+      }
 
       const response: VersionCheckResponseDto = {
         download_url: '',
@@ -96,13 +108,13 @@ export class VersionCheckService {
           `找到匹配版本: version=${response.version}, download_url=${response.download_url}, build_date=${response.build_date}`
         );
       } else {
-        this.logger.debug(`未找到匹配的版本信息，客户端将触发降级逻辑`);
+        this.logger.debug(`未找到匹配的版本信息, typ=${typ}`);
       }
 
       // 记录请求日志
       const responseTime = Date.now() - startTime;
       this.logger.log(
-        `版本检查完成: id=${request.id}, os=${request.os}, arch=${request.arch}, response_time=${responseTime}ms, version_found=${!!latestVersion}`
+        `版本检查完成: id=${request.id}, os=${request.os}, arch=${request.arch}, typ=${typ}, response_time=${responseTime}ms, version_found=${!!latestVersion}`
       );
 
       return response;
@@ -183,10 +195,7 @@ export class VersionCheckService {
     );
 
     try {
-      // 从 tag 中提取版本号（假设 tag 格式为 v1.0.0）
-      const version = request.tag.startsWith('v')
-        ? request.tag.substring(1)
-        : request.tag;
+      const { version, typ } = this.parseTagAndType(request.tag);
 
       // 解析每个上传的文件
       const processedAssets: Array<{
@@ -206,7 +215,7 @@ export class VersionCheckService {
 
           // 保存文件到本地存储
           const downloadUrl = await this.fileStorageService.saveFile(
-            version,
+            request.tag,
             parsedInfo.os,
             parsedInfo.arch,
             file.originalname,
@@ -218,7 +227,7 @@ export class VersionCheckService {
             version,
             os: parsedInfo.os,
             arch: parsedInfo.arch,
-            typ: parsedInfo.typ,
+            typ: typ,
             download_url: downloadUrl,
             build_date: Math.floor(Date.now() / 1000), // 使用当前时间作为构建时间
             remarks: request.body || '',
@@ -290,7 +299,52 @@ export class VersionCheckService {
   }
 
   /**
-   * 从资产文件名解析平台、架构和类型信息
+   * 解析 Tag 获取版本号和发布类型
+   *
+   * Tag 格式: {version}-{typ}
+   * 示例: "1.4.4-public" → { version: "1.4.4", typ: "public" }
+   *
+   * @param tag 标签
+   * @returns 版本号和发布类型
+   */
+  private parseTagAndType(tag: string): { version: string; typ: string } {
+    const parts = tag.split('-');
+
+    if (parts.length < 2) {
+      throw new BadRequestException(
+        `Invalid tag format. Expected: {version}-{typ}, Got: ${tag}`
+      );
+    }
+
+    const typ = parts[parts.length - 1];
+    const version = parts.slice(0, parts.length - 1).join('-');
+
+    return { version, typ };
+  }
+
+  /**
+   * 比较语义化版本号
+   *
+   * @param a 版本号 A
+   * @param b 版本号 B
+   * @returns 比较结果: 负数表示 a < b, 0 表示 a == b, 正数表示 a > b
+   */
+  private compareSemver(a: string, b: string): number {
+    const parse = (v: string) => {
+      const [major, minor, patch] = v.split('.').map(Number);
+      return { major, minor, patch };
+    };
+
+    const va = parse(a);
+    const vb = parse(b);
+
+    if (va.major !== vb.major) return va.major - vb.major;
+    if (va.minor !== vb.minor) return va.minor - vb.minor;
+    return va.patch - vb.patch;
+  }
+
+  /**
+   * 从资产文件名解析平台和架构信息
    *
    * 支持的文件名格式示例:
    * - rustdesk-1.2.3-x86_64.exe
@@ -299,15 +353,14 @@ export class VersionCheckService {
    * - rustdesk-android-1.2.3.apk
    *
    * @param filename 文件名
-   * @returns 解析的平台、架构和类型信息
+   * @returns 解析的平台和架构信息
    */
-  private parseAssetFilename(filename: string): { os: string; arch: string; typ: string } {
+  private parseAssetFilename(filename: string): { os: string; arch: string } {
     const lowerFilename = filename.toLowerCase();
 
     // 默认值
     let os = 'unknown';
     let arch = 'unknown';
-    let typ = 'rustdesk';
 
     // 解析操作系统
     if (lowerFilename.includes('windows') || lowerFilename.endsWith('.exe') || lowerFilename.endsWith('.msi')) {
@@ -316,7 +369,7 @@ export class VersionCheckService {
       os = 'macos';
     } else if (lowerFilename.includes('linux')) {
       if (lowerFilename.endsWith('.deb')) {
-        os = 'linux';
+      os = 'linux';
       } else if (lowerFilename.endsWith('.rpm')) {
         os = 'linux';
       } else if (lowerFilename.endsWith('.AppImage')) {
@@ -341,13 +394,6 @@ export class VersionCheckService {
       arch = 'armv7';
     }
 
-    // 解析类型
-    if (lowerFilename.includes('android')) {
-      typ = 'android';
-    } else if (lowerFilename.includes('ios')) {
-      typ = 'ios';
-    }
-
-    return { os, arch, typ };
+    return { os, arch };
   }
 }
