@@ -17,6 +17,25 @@ import { Peer } from '../../common/entities';
 import { EmailVerificationSession } from './entities/email-verification-session.entity';
 import { EmailModule } from '../email/email.module';
 
+/**
+ * 认证模块
+ * 负责用户认证、授权和令牌管理
+ *
+ * 导入模块：
+ * - TypeOrmModule
+ * - JwtModule
+ * - MailerModule
+ *
+ * 导出服务：
+ * - AuthService
+ * - JwtStrategy
+ *
+ * 提供服务：
+ * - AuthService
+ * - JwtStrategy
+ * - JwtAuthGuard
+ * - AdminGuard
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, UserToken, Peer, EmailVerificationSession]),

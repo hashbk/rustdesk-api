@@ -38,15 +38,17 @@ export interface LoginResponse {
   };
 }
 
-/**
- * 双因素认证服务
- * 负责处理双因素认证（TFA）相关的验证和登录逻辑
- * 
- * 功能：
- * - 验证TFA验证码
- * - 处理TFA登录流程
- */
 @Injectable()
+/**
+ * AuthTfaService
+ * 负责双因素认证的子服务
+ *
+ * 与主服务关系：
+ * 被AuthService委托处理TFA相关操作
+ *
+ * 调用上下文：
+ * 包括TFA密钥生成、验证和启用/禁用
+ */
 export class AuthTfaService {
   private readonly logger = new Logger(AuthTfaService.name);
 

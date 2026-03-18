@@ -4,16 +4,20 @@ import { Repository, In } from 'typeorm';
 import { DeviceGroup } from './entities/device-group.entity';
 import { User, UserStatus } from '../user/entities/user.entity';
 
-/**
- * 设备组服务
- * 负责管理设备组和相关的业务逻辑
- * 
- * 功能：
- * - 获取用户可访问的设备组列表
- * - 获取用户可访问的用户列表
- * - 管理设备组权限
- */
 @Injectable()
+/**
+ * DeviceGroupService
+ * 负责设备组管理和权限控制的核心服务
+ *
+ * 功能：
+ * - 设备组创建和管理
+ * - 设备组权限管理
+ * - 用户权限管理
+ * - 可访问资源查询
+ *
+ * 架构说明：
+ * 管理设备组和用户之间的权限关系
+ */
 export class DeviceGroupService {
   constructor(
     @InjectRepository(DeviceGroup)

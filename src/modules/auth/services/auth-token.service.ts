@@ -23,17 +23,17 @@ export interface JwtPayload {
   deviceId?: string;
 }
 
-/**
- * Token服务
- * 负责JWT Token的生成、验证和撤销管理
- * 
- * 功能：
- * - 生成JWT Token并保存到数据库
- * - 验证Token的有效性和撤销状态
- * - 撤销指定的Token
- * - 撤销设备的所有Token
- */
 @Injectable()
+/**
+ * AuthTokenService
+ * 负责JWT令牌生成和验证的子服务
+ *
+ * 与主服务关系：
+ * 被AuthService委托处理令牌相关操作
+ *
+ * 调用上下文：
+ * 包括令牌生成、验证和撤销
+ */
 export class AuthTokenService {
   /** Token有效期（天） */
   private readonly TOKEN_EXPIRY_DAYS = 30;

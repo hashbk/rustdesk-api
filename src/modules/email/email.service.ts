@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
+/**
+ * EmailService
+ * 负责发送邮件，包括验证码邮件
+ *
+ * 使用场景：
+ * 用于邮箱验证码登录功能
+ */
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 

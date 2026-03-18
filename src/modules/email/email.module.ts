@@ -3,6 +3,19 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { EmailService } from './email.service';
 
+/**
+ * 邮件模块
+ * 负责邮件发送和验证码管理
+ *
+ * 导入模块：
+ * - MailerModule
+ *
+ * 导出服务：
+ * - EmailService
+ *
+ * 提供服务：
+ * - EmailService
+ */
 @Module({
   imports: [
     MailerModule.forRoot({

@@ -70,19 +70,21 @@ export interface AuthBody {
   };
 }
 
-/**
- * OIDC服务
- * 负责处理OpenID Connect（OIDC）认证流程
- * 
- * 功能：
- * - 获取启用的OIDC提供商列表
- * - 处理OIDC授权请求
- * - 查询OIDC授权状态
- * - 管理OIDC授权会话
- * 
- * 注意：当前实现为简化版本，实际生产环境需要完整实现OIDC协议
- */
 @Injectable()
+/**
+ * OidcService
+ * 负责OpenID Connect第三方登录集成的核心服务
+ *
+ * 功能：
+ * - OIDC提供商管理
+ * - 授权流程管理
+ * - 令牌交换
+ * - 用户信息获取
+ * - 认证状态管理
+ *
+ * 架构说明：
+ * 实现OIDC授权码流程，支持多个OIDC提供商
+ */
 export class OidcService {
   private readonly logger = new Logger(OidcService.name);
   /** 授权码有效期（分钟） */

@@ -5,23 +5,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag } from '../entities';
 import { Sysinfo } from '../../../common/entities';
 
-/**
- * 地址簿旧版兼容服务
- * 提供旧版RustDesk客户端的API兼容支持
- * 
- * 功能：
- * - 获取旧版地址簿数据（兼容旧版客户端格式）
- * - 更新旧版地址簿数据（支持双重JSON编码）
- * 
- * 兼容性说明：
- * 旧版客户端使用不同的数据格式，本服务负责新旧格式之间的转换
- * 返回格式与旧版客户端保持一致，确保平滑升级
- * 
- * 数据格式：
- * - 旧版格式：使用双重JSON编码
- * - 新版格式：使用关系型数据库存储
- */
 @Injectable()
+/**
+ * AddressBookLegacyService
+ * 负责旧版API兼容的子服务
+ *
+ * 与主服务关系：
+ * 被AddressBookService委托处理旧版API请求
+ *
+ * 调用上下文：
+ * 提供与旧版客户端的兼容性支持
+ */
 export class AddressBookLegacyService {
   constructor(
     @InjectRepository(AddressBook)

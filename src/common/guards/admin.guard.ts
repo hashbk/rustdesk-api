@@ -1,15 +1,16 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 
-/**
- * 管理员权限守卫
- * 用于保护需要管理员权限的接口
- * 
- * 使用方式：
- * @UseGuards(AdminGuard)
- * @Get('admin-only')
- * async adminOnlyEndpoint() { ... }
- */
 @Injectable()
+/**
+ * AdminGuard
+ * 验证用户是否具有管理员权限
+ *
+ * 权限规则：
+ * 只有管理员才能访问的路由会使用此守卫
+ *
+ * 验证逻辑：
+ * 检查用户信息中的isAdmin字段
+ */
 export class AdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();

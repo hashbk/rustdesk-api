@@ -8,16 +8,21 @@ import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
 
-/**
- * 审计服务
- * 负责记录和管理系统中的各种审计日志，包括连接、文件操作和告警
- * 
- * 功能：
- * - 记录远程桌面连接审计
- * - 记录文件传输审计
- * - 记录安全告警审计
- */
 @Injectable()
+/**
+ * AuditService
+ * 负责审计日志记录和查询的核心服务
+ *
+ * 功能：
+ * - 连接审计记录
+ * - 文件传输审计记录
+ * - 告警审计记录
+ * - 审计日志查询
+ * - 审计统计
+ *
+ * 架构说明：
+ * 处理三种类型的审计事件：连接、文件传输和告警
+ */
 export class AuditService {
   constructor(
     @InjectRepository(ConnectionAudit)

@@ -8,6 +8,19 @@ import { User } from '../user/entities/user.entity';
 import { UserToken } from '../user/entities/user-token.entity';
 import { AuthModule } from '../auth/auth.module';
 
+/**
+ * OIDC模块
+ * 负责OpenID Connect第三方登录集成
+ *
+ * 导入模块：
+ * - TypeOrmModule
+ *
+ * 导出服务：
+ * - OidcService
+ *
+ * 提供服务：
+ * - OidcService
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([OidcProvider, OidcAuthState, User, UserToken]),

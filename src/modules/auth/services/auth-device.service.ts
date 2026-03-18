@@ -3,15 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Peer } from '../../../common/entities';
 
-/**
- * 设备管理服务
- * 负责管理用户设备的绑定和解绑操作
- * 
- * 功能：
- * - 创建或更新设备记录（绑定设备到用户）
- * - 解除设备与用户的绑定
- */
 @Injectable()
+/**
+ * AuthDeviceService
+ * 负责设备绑定的子服务
+ *
+ * 与主服务关系：
+ * 被AuthService委托处理设备相关操作
+ *
+ * 调用上下文：
+ * 包括设备绑定、解绑和状态管理
+ */
 export class AuthDeviceService {
   private readonly logger = new Logger(AuthDeviceService.name);
 

@@ -8,6 +8,13 @@ import { OidcProvider } from '../modules/oidc/entities/oidc-provider.entity';
 import { OidcAuthState } from '../modules/oidc/entities/oidc-auth-state.entity';
 
 @Injectable()
+/**
+ * DatabaseInitService
+ * 负责数据库的初始化和预设数据的创建
+ *
+ * 使用场景：
+ * 在应用启动时自动执行，确保数据库结构和预设数据正确
+ */
 export class DatabaseInitService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseInitService.name);
 

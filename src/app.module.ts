@@ -30,6 +30,27 @@ import { UserUserPermission } from './modules/device-group/entities/user-user-pe
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { EmailVerificationSession } from './modules/auth/entities/email-verification-session.entity';
 
+/**
+ * 应用根模块
+ * RustDesk API的根模块，负责配置全局依赖和导入所有功能模块
+ *
+ * 导入模块：
+ * - ThrottlerModule - 请求限流模块
+ * - TypeOrmModule - 数据库ORM模块
+ * - DatabaseModule - 数据库初始化模块
+ * - HeartbeatModule - 心跳模块
+ * - AddressBookModule - 地址簿模块
+ * - AuditModule - 审计模块
+ * - UserModule - 用户模块
+ * - DeviceGroupModule - 设备组模块
+ * - AuthModule - 认证模块
+ * - OidcModule - OIDC认证模块
+ * - SysinfoModule - 系统信息模块
+ *
+ * 提供服务：
+ * - ThrottlerGuard - 全局限流守卫
+ * - JwtAuthGuard - 全局JWT认证守卫
+ */
 @Module({
   imports: [
     ThrottlerModule.forRoot([{

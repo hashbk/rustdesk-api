@@ -5,25 +5,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { AddressBook, AddressBookTag, AddressBookPeerTag, ShareRule } from '../entities';
 import { AddTagDto, UpdateTagDto, RenameTagDto } from '../dto';
 
-/**
- * 地址簿标签服务
- * 负责地址簿中标签的管理，包括标签的增删改查
- * 
- * 功能：
- * - 获取地址簿标签列表
- * - 添加标签
- * - 重命名标签
- * - 更新标签颜色
- * - 删除标签
- * - 获取或创建标签（用于设备标签关联）
- * 
- * 标签特性：
- * - 标签属于特定地址簿
- * - 标签可以关联多个设备
- * - 标签具有颜色属性，用于UI显示
- * - 删除标签会自动删除所有设备与该标签的关联
- */
 @Injectable()
+/**
+ * AddressBookTagService
+ * 负责地址簿中标签管理的子服务
+ *
+ * 与主服务关系：
+ * 被AddressBookService委托处理标签相关操作
+ *
+ * 调用上下文：
+ * 包括标签的添加、更新、删除和查询
+ */
 export class AddressBookTagService {
   constructor(
     @InjectRepository(AddressBook)

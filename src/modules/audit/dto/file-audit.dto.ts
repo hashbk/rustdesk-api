@@ -1,6 +1,10 @@
 import { IsString, IsInt, IsBoolean, Min, Max, IsOptional } from 'class-validator';
 import { FileAuditType } from '../entities/file-audit.entity';
 
+/**
+ * FileAuditDto
+ * 用于记录文件传输审计信息
+ */
 export class FileAuditDto {
   @IsString()
   id: string;

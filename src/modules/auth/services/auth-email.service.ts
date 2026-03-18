@@ -39,15 +39,17 @@ export interface LoginResponse {
   };
 }
 
-/**
- * 邮箱验证服务
- * 负责处理邮箱验证码的生成、发送和验证
- * 
- * 功能：
- * - 发起邮箱验证（生成验证码并发送邮件）
- * - 处理邮箱验证码登录（第二步验证）
- */
 @Injectable()
+/**
+ * AuthEmailService
+ * 负责邮箱验证码认证的子服务
+ *
+ * 与主服务关系：
+ * 被AuthService委托处理邮箱相关操作
+ *
+ * 调用上下文：
+ * 包括验证码生成、发送和验证
+ */
 export class AuthEmailService {
   private readonly logger = new Logger(AuthEmailService.name);
   /** 验证码有效期（分钟） */

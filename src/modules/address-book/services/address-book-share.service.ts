@@ -5,26 +5,17 @@ import { AddressBook, AddressBookShare, ShareRule } from '../entities';
 import { User } from '../../user/entities/user.entity';
 import { PaginationDto } from '../dto';
 
-/**
- * 地址簿共享服务
- * 负责地址簿的共享功能管理
- * 
- * 功能：
- * - 获取共享给用户的地址簿列表
- * - 共享地址簿给其他用户
- * - 取消地址簿共享
- * 
- * 权限级别：
- * - READ: 只读权限，可以查看地址簿内容
- * - READ_WRITE: 读写权限，可以查看和编辑地址簿内容
- * - FULL_CONTROL: 完全控制权限，可以查看、编辑和管理共享
- * 
- * 共享特性：
- * - 只有地址簿所有者可以共享地址簿
- * - 可以设置不同的共享权限级别
- * - 同一用户多次共享会更新权限级别
- */
 @Injectable()
+/**
+ * AddressBookShareService
+ * 负责地址簿共享管理的子服务
+ *
+ * 与主服务关系：
+ * 被AddressBookService委托处理共享相关操作
+ *
+ * 调用上下文：
+ * 包括共享的创建、更新、删除和权限管理
+ */
 export class AddressBookShareService {
   constructor(
     @InjectRepository(AddressBook)

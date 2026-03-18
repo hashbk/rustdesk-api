@@ -1,5 +1,9 @@
 import { IsString, IsOptional, IsBoolean, IsObject, IsEmail } from 'class-validator';
 
+/**
+ * LoginDto
+ * 用于用户登录请求，支持多种登录方式
+ */
 export class LoginDto {
   @IsOptional()
   @IsString()
@@ -42,6 +46,10 @@ export class LoginDto {
   deviceInfo?: Record<string, any>;
 }
 
+/**
+ * RegisterDto
+ * 用于新用户注册
+ */
 export class RegisterDto {
   @IsString()
   username: string;
@@ -57,6 +65,10 @@ export class RegisterDto {
   note?: string;
 }
 
+/**
+ * CurrentUserDto
+ * 用于获取当前用户信息
+ */
 export class CurrentUserDto {
   @IsOptional()
   @IsString()
@@ -67,6 +79,10 @@ export class CurrentUserDto {
   uuid?: string;
 }
 
+/**
+ * LogoutDto
+ * 用于用户登出请求
+ */
 export class LogoutDto {
   @IsOptional()
   @IsString()

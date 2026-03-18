@@ -6,24 +6,17 @@ import { AddressBook, AddressBookPeer, AddressBookPeerTag, ShareRule } from '../
 import { AddPeerDto, UpdatePeerDto, PeersQueryDto } from '../dto';
 import { Sysinfo, Peer } from '../../../common/entities';
 
-/**
- * 地址簿设备服务
- * 负责地址簿中设备的管理，包括设备的增删改查
- * 
- * 功能：
- * - 获取地址簿中的设备列表（包含设备详细信息）
- * - 添加设备到地址簿
- * - 更新设备信息
- * - 删除设备
- * - 设备标签关联管理
- * 
- * 数据关联：
- * - AddressBookPeer: 存储地址簿中的设备记录
- * - Peer: 存储设备基础信息（uuid, id等）
- * - Sysinfo: 存储设备系统信息（hostname, os等）
- * - AddressBookPeerTag: 存储设备与标签的关联关系
- */
 @Injectable()
+/**
+ * AddressBookPeerService
+ * 负责地址簿中设备管理的子服务
+ *
+ * 与主服务关系：
+ * 被AddressBookService委托处理设备相关操作
+ *
+ * 调用上下文：
+ * 包括设备的添加、更新、删除和查询
+ */
 export class AddressBookPeerService {
   constructor(
     @InjectRepository(AddressBook)

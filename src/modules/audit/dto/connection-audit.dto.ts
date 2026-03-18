@@ -1,5 +1,9 @@
 import { IsString, IsOptional, IsArray, IsInt, Min, Max, IsNumber } from 'class-validator';
 
+/**
+ * ConnectionAuditDto
+ * 用于记录连接审计信息
+ */
 export class ConnectionAuditDto {
   @IsString()
   id: string;
@@ -7,11 +11,9 @@ export class ConnectionAuditDto {
   @IsString()
   uuid: string;
 
-  // 支持前端发送的 conn_id（下划线格式）
   @IsNumber()
   conn_id: number;
 
-  // 支持前端发送的 session_id（下划线格式）
   @IsNumber()
   session_id: number;
 
