@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneT
 import { AddressBookPeer } from './address-book-peer.entity';
 import { AddressBookTag } from './address-book-tag.entity';
 import { AddressBookShare } from './address-book-share.entity';
+import { AddressBookRule } from './address-book-rule.entity';
 
 /**
  * 地址簿实体
@@ -72,6 +73,13 @@ export class AddressBook {
    */
   @OneToMany(() => AddressBookShare, share => share.addressBook, { cascade: true })
   shares: AddressBookShare[];
+
+  /**
+   * 地址簿的规则列表
+   * 一对多关系，关联到 AddressBookRule
+   */
+  @OneToMany(() => AddressBookRule, rule => rule.addressBook, { cascade: true })
+  rules: AddressBookRule[];
 
   /**
    * 创建时间

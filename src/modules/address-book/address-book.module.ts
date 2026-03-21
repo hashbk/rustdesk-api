@@ -7,14 +7,15 @@ import {
   AddressBookTagService,
   AddressBookShareService,
   AddressBookLegacyService,
+  AddressBookRuleService,
 } from './services';
-import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag } from './entities';
+import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, AddressBookRule } from './entities';
 import { Sysinfo, Peer } from '../../common/entities';
 import { User } from '../user/entities/user.entity';
 
 /**
  * 地址簿模块
- * 负责地址簿管理、设备管理和标签管理
+ * 负责地址簿管理、设备管理、标签管理和规则管理
  *
  * 导入模块：
  * - TypeOrmModule
@@ -28,9 +29,10 @@ import { User } from '../user/entities/user.entity';
  * - TagService
  * - ShareService
  * - LegacyService
+ * - RuleService
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, Sysinfo, Peer, User])],
+  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, AddressBookRule, Sysinfo, Peer, User])],
   controllers: [AddressBookController],
   providers: [
     AddressBookService,
@@ -38,6 +40,7 @@ import { User } from '../user/entities/user.entity';
     AddressBookTagService,
     AddressBookShareService,
     AddressBookLegacyService,
+    AddressBookRuleService,
   ],
   exports: [AddressBookService],
 })

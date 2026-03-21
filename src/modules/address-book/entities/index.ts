@@ -17,3 +17,6 @@ export { AddressBookShare, ShareRule } from './address-book-share.entity';
 
 /** 地址簿节点标签关联实体 - 管理设备与标签的多对多关系 */
 export { AddressBookPeerTag } from './address-book-peer-tag.entity';
+
+/** 地址簿规则实体 - 管理地址簿的访问规则和权限 */
+export { AddressBookRule } from './address-book-rule.entity';
