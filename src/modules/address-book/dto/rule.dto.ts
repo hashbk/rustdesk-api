@@ -20,7 +20,7 @@ export class RuleQueryDto {
    */
   @IsString()
   @IsNotEmpty()
-  ab: string;
+  addressBookGuid: string;
 
   /**
    * 每页数量
@@ -54,29 +54,29 @@ export class CreateRuleDto {
    */
   @IsString()
   @IsNotEmpty()
-  guid: string;
+  addressBookGuid: string;
 
   /**
-   * 规则目标用户
-   * rule-type = "user" 时必需
-   * 与 group 互斥
+   * 目标用户 GUID
+   * 规则类型为 "user" 时必需
+   * 与 targetGroupId 互斥
    */
   @IsOptional()
   @ValidateIf((o) => o.ruleType !== 'group' && o.ruleType !== 'everyone')
   @IsString()
   @IsNotEmpty()
-  user?: string;
+  targetUserId?: string;
 
   /**
-   * 规则目标用户组
-   * rule-type = "group" 时必需
-   * 与 user 互斥
+   * 目标组 GUID
+   * 规则类型为 "group" 时必需
+   * 与 targetUserId 互斥
    */
   @IsOptional()
   @ValidateIf((o) => o.ruleType !== 'user' && o.ruleType !== 'everyone')
   @IsString()
   @IsNotEmpty()
-  group?: string;
+  targetGroupId?: string;
 
   /**
    * 权限级别

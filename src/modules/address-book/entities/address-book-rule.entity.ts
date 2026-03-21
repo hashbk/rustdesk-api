@@ -2,6 +2,19 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Many
 import { AddressBook } from './address-book.entity';
 
 /**
+ * 共享权限规则枚举
+ * 定义地址簿共享的权限级别
+ */
+export enum ShareRule {
+  /** 只读权限 - 只能查看地址簿内容 */
+  READ = 1,
+  /** 读写权限 - 可以查看和编辑地址簿内容 */
+  READ_WRITE = 2,
+  /** 完全控制权限 - 可以查看、编辑、删除和共享地址簿 */
+  FULL_CONTROL = 3,
+}
+
+/**
  * 地址簿规则实体
  * 管理地址簿的访问权限规则
  * 
@@ -25,27 +38,27 @@ export class AddressBookRule {
   guid: string;
 
   /**
-   * 所属地址簿
-   * 多对一关系，关联到 AddressBook
+   * 所属地址簿 GUID
+   * 关联到 address_books 表的 guid 字段
    */
   @PrimaryColumn()
-  ab: string;
+  addressBookGuid: string;
 
   /**
-   * 规则目标用户
-   * 当 rule_type 为 'user' 时，此字段为用户名
-   * 当 rule_type 为 'group' 或 'everyone' 时，此字段为空
+   * 目标用户 GUID
+   * 当规则类型为 'user' 时，此字段为目标用户 ID
+   * 当规则类型为 'group' 或 'everyone' 时，此字段为空
    */
   @Column({ type: 'varchar', nullable: true })
-  user: string;
+  targetUserId: string;
 
   /**
-   * 规则目标组
-   * 当 rule_type 为 'group' 时，此字段为组名
-   * 当 rule_type 为 'user' 或 'everyone' 时，此字段为空
+   * 目标组 GUID
+   * 当规则类型为 'group' 时，此字段为目标组 ID
+   * 当规则类型为 'user' 或 'everyone' 时，此字段为空
    */
   @Column({ type: 'varchar', nullable: true })
-  group: string;
+  targetGroupId: string;
 
   /**
    * 规则权限级别
@@ -81,10 +94,10 @@ export class AddressBookRule {
    * @returns "user" | "group" | "everyone"
    */
   get ruleType(): 'user' | 'group' | 'everyone' {
-    if (this.user) {
+    if (this.targetUserId) {
       return 'user';
     }
-    if (this.group) {
+    if (this.targetGroupId) {
       return 'group';
     }
     return 'everyone';

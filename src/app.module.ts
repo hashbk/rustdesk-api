@@ -18,7 +18,6 @@ import { AlarmAudit } from './modules/audit/entities/alarm-audit.entity';
 import { AddressBook } from './modules/address-book/entities/address-book.entity';
 import { AddressBookPeer } from './modules/address-book/entities/address-book-peer.entity';
 import { AddressBookTag } from './modules/address-book/entities/address-book-tag.entity';
-import { AddressBookShare } from './modules/address-book/entities/address-book-share.entity';
 import { AddressBookPeerTag } from './modules/address-book/entities/address-book-peer-tag.entity';
 import { AddressBookRule } from './modules/address-book/entities/address-book-rule.entity';
 import { User } from './modules/user/entities/user.entity';
@@ -62,7 +61,7 @@ import { EmailVerificationSession } from './modules/auth/entities/email-verifica
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'rustdesk.db',
-      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, AddressBookRule, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission, EmailVerificationSession],
+      entities: [Sysinfo, Peer, ConnectionAudit, FileAudit, AlarmAudit, AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag, AddressBookRule, User, UserToken, OidcProvider, OidcAuthState, DeviceGroup, DeviceGroupUserPermission, UserUserPermission, EmailVerificationSession],
       synchronize: true,
       logging: false,
     }),

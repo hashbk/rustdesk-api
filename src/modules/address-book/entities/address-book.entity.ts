@@ -1,7 +1,6 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { AddressBookPeer } from './address-book-peer.entity';
 import { AddressBookTag } from './address-book-tag.entity';
-import { AddressBookShare } from './address-book-share.entity';
 import { AddressBookRule } from './address-book-rule.entity';
 
 /**
@@ -66,13 +65,6 @@ export class AddressBook {
    */
   @OneToMany(() => AddressBookTag, tag => tag.addressBook, { cascade: true })
   tags: AddressBookTag[];
-
-  /**
-   * 地址簿的共享记录列表
-   * 一对多关系，关联到 AddressBookShare
-   */
-  @OneToMany(() => AddressBookShare, share => share.addressBook, { cascade: true })
-  shares: AddressBookShare[];
 
   /**
    * 地址簿的规则列表

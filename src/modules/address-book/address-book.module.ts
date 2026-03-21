@@ -5,11 +5,10 @@ import {
   AddressBookService,
   AddressBookPeerService,
   AddressBookTagService,
-  AddressBookShareService,
   AddressBookLegacyService,
   AddressBookRuleService,
 } from './services';
-import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, AddressBookRule } from './entities';
+import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag, AddressBookRule } from './entities';
 import { Sysinfo, Peer } from '../../common/entities';
 import { User } from '../user/entities/user.entity';
 
@@ -32,13 +31,12 @@ import { User } from '../user/entities/user.entity';
  * - RuleService
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookShare, AddressBookPeerTag, AddressBookRule, Sysinfo, Peer, User])],
+  imports: [TypeOrmModule.forFeature([AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag, AddressBookRule, Sysinfo, Peer, User])],
   controllers: [AddressBookController],
   providers: [
     AddressBookService,
     AddressBookPeerService,
     AddressBookTagService,
-    AddressBookShareService,
     AddressBookLegacyService,
     AddressBookRuleService,
   ],

@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { AddressBook, AddressBookShare, ShareRule } from '../entities';
+import { AddressBook, AddressBookRule, ShareRule } from '../entities';
 import { User } from '../../user/entities/user.entity';
 import { PaginationDto, PeersQueryDto, AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto } from '../dto';
 import { AddressBookPeerService } from './address-book-peer.service';
 import { AddressBookTagService } from './address-book-tag.service';
-import { AddressBookShareService } from './address-book-share.service';
 import { AddressBookLegacyService } from './address-book-legacy.service';
+import { AddressBookRuleService } from './address-book-rule.service';
 
 /**
  * 地址簿服务
@@ -18,7 +18,7 @@ import { AddressBookLegacyService } from './address-book-legacy.service';
  * - 地址簿基础管理（创建、获取、权限检查）
  * - 设备管理（委托给 PeerService）
  * - 标签管理（委托给 TagService）
- * - 共享管理（委托给 ShareService）
+ * - 共享管理（委托给 RuleService）
  * - 旧版 API 兼容（委托给 LegacyService）
  * 
  * 架构说明：
@@ -30,19 +30,19 @@ export class AddressBookService {
   constructor(
     @InjectRepository(AddressBook)
     private addressBookRepository: Repository<AddressBook>,
-    @InjectRepository(AddressBookShare)
-    private addressBookShareRepository: Repository<AddressBookShare>,
+    @InjectRepository(AddressBookRule)
+    private ruleRepository: Repository<AddressBookRule>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private readonly peerService: AddressBookPeerService,
     private readonly tagService: AddressBookTagService,
-    private readonly shareService: AddressBookShareService,
+    private readonly ruleService: AddressBookRuleService,
     private readonly legacyService: AddressBookLegacyService,
   ) {}
 
   /**
    * 检查用户是否有权限访问地址簿
-   * 验证用户对地址簿的访问权限，包括所有权检查和共享权限检查
+   * 验证用户对地址簿的访问权限，包括所有权检查和规则权限检查
    * 
    * @param addressBookGuid 地址簿 GUID
    * @param userId 用户 ID
@@ -70,17 +70,21 @@ export class AddressBookService {
       return addressBook;
     }
 
-    // 检查共享权限
-    const shared = await this.addressBookShareRepository.findOne({
-      where: { addressBookGuid, sharedWithUserId: userId },
+    // 检查规则权限（用户规则）
+    const rule = await this.ruleRepository.findOne({
+      where: { 
+        addressBookGuid, 
+        targetUserId: userId,
+        targetGroupId: IsNull(),  // 确保是用户规则
+      },
     });
 
-    if (!shared) {
+    if (!rule) {
       throw new ForbiddenException('无权访问此地址簿');
     }
 
     // 检查权限级别
-    if (shared.rule < requiredRule) {
+    if (rule.rule < requiredRule) {
       const requiredPermission = requiredRule === ShareRule.READ_WRITE ? '读写' : '完全控制';
       throw new ForbiddenException(`需要${requiredPermission}权限`);
     }
@@ -262,23 +266,23 @@ export class AddressBookService {
     return this.tagService.deleteTags(addressBookGuid, names, userId, this.checkAddressBookAccess.bind(this));
   }
 
-  // ============ 共享管理（委托给 ShareService） ============
+  // ============ 共享管理（委托给 RuleService） ============
 
   /**
    * 获取共享给用户的地址簿列表
-   * 委托给 ShareService 处理
+   * 委托给 RuleService 处理
    * 
    * @param userId 用户 ID
    * @param query 分页查询参数
    * @returns 共享地址簿列表
    */
   async getSharedAddressBooks(userId: string, query: PaginationDto) {
-    return this.shareService.getSharedAddressBooks(userId, query);
+    return this.ruleService.getSharedAddressBooks(userId, query);
   }
 
   /**
    * 添加共享地址簿
-   * 委托给 ShareService 处理
+   * 委托给 RuleService 处理
    * 
    * @param name 地址簿名称
    * @param userId 用户 ID
@@ -292,7 +296,7 @@ export class AddressBookService {
     note?: string,
     password?: string,
   ) {
-    return this.shareService.addSharedAddressBook(
+    return this.ruleService.addSharedAddressBook(
       name,
       userId || '',
       note,
@@ -302,7 +306,7 @@ export class AddressBookService {
 
   /**
    * 更新共享地址簿
-   * 委托给 ShareService 处理
+   * 委托给 RuleService 处理
    * 
    * @param guid 地址簿 GUID
    * @param name 新名称
@@ -317,7 +321,7 @@ export class AddressBookService {
     owner?: string,
     password?: string,
   ) {
-    return this.shareService.updateSharedAddressBook(
+    return this.ruleService.updateSharedAddressBook(
       guid,
       name,
       note,
@@ -328,13 +332,13 @@ export class AddressBookService {
 
   /**
    * 删除共享地址簿
-   * 委托给 ShareService 处理
+   * 委托给 RuleService 处理
    * 
    * @param guids 地址簿 GUID 数组
    * @param userId 用户 ID
    */
   async deleteSharedAddressBooks(guids: string[], userId: string) {
-    return this.shareService.deleteSharedAddressBooks(guids, userId);
+    return this.ruleService.deleteSharedAddressBooks(guids, userId);
   }
 
   // ============ 旧版（Legacy）API（委托给 LegacyService） ============

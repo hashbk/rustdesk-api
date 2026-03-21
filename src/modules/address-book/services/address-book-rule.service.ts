@@ -6,21 +6,23 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { AddressBookRule, AddressBook } from '../entities';
+import { AddressBookRule, AddressBook, ShareRule } from '../entities';
+import { User } from '../../user/entities/user.entity';
 import { AddressBookService } from './address-book.service';
-import { RuleQueryDto, CreateRuleDto, UpdateRuleDto } from '../dto';
+import { RuleQueryDto, CreateRuleDto, UpdateRuleDto, PaginationDto } from '../dto';
 
 /**
  * 地址簿规则服务
- * 管理地址簿的访问规则，包括增删改查操作
+ * 管理地址簿的访问规则，包括增删改查操作和共享管理
  *
  * 功能：
  * - 获取规则列表（分页）
  * - 创建新规则
  * - 更新规则权限
  * - 批量删除规则
+ * - 共享地址簿管理
  *
  * 权限级别：
  * - 1 (READ): 只读权限
@@ -36,6 +38,9 @@ export class AddressBookRuleService {
     @InjectRepository(AddressBook)
     private addressBookRepository: Repository<AddressBook>,
 
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+
     private readonly addressBookService: AddressBookService,
   ) {}
 
@@ -50,18 +55,18 @@ export class AddressBookRuleService {
    */
   async getRules(query: RuleQueryDto, userId: string) {
     // 检查用户是否有权限访问该地址簿
-    await this.checkAddressBookPermissions(query.ab, userId);
+    await this.checkAddressBookPermissions(query.addressBookGuid, userId);
 
-    const { ab, current = 1, pageSize = 30 } = query;
+    const { addressBookGuid, current = 1, pageSize = 30 } = query;
 
     // 查询总数
     const total = await this.ruleRepository.count({
-      where: { ab },
+      where: { addressBookGuid },
     });
 
     // 查询规则列表
     const rules = await this.ruleRepository.find({
-      where: { ab },
+      where: { addressBookGuid },
       relations: ['addressBook'],
       skip: (current - 1) * pageSize,
       take: pageSize,
@@ -87,31 +92,31 @@ export class AddressBookRuleService {
    */
   async createRule(dto: CreateRuleDto, userId: string) {
     // 检查地址簿是否存在且用户有权限修改
-    await this.checkAddressBookPermissions(dto.guid, userId);
+    await this.checkAddressBookPermissions(dto.addressBookGuid, userId);
 
     // 确定规则类型和目标
-    const { user, group, rule = 1 } = dto;
+    const { targetUserId, targetGroupId, rule = 1 } = dto;
 
     // 验证用户和组互斥
-    if (user && group) {
+    if (targetUserId && targetGroupId) {
       throw new ConflictException('用户和组不能同时指定');
     }
 
     // 如果没有指定用户或组，默认为 everyone
-    const targetUser = user || '';
-    const targetGroup = group || '';
+    const finalTargetUserId = targetUserId || '';
+    const finalTargetGroupId = targetGroupId || '';
 
     // 检查是否已存在相同规则
     const whereClause: any = {
-      ab: dto.guid,
+      addressBookGuid: dto.addressBookGuid,
     };
     
     // 只添加非空值到 where 子句
-    if (targetUser) {
-      whereClause.user = targetUser;
+    if (finalTargetUserId) {
+      whereClause.targetUserId = finalTargetUserId;
     }
-    if (targetGroup) {
-      whereClause.group = targetGroup;
+    if (finalTargetGroupId) {
+      whereClause.targetGroupId = finalTargetGroupId;
     }
     
     const existingRule = await this.ruleRepository.findOne({
@@ -125,9 +130,9 @@ export class AddressBookRuleService {
     // 创建新规则
     const newRule: Partial<AddressBookRule> = {
       guid: uuidv4(),
-      ab: dto.guid,
-      user: targetUser,
-      group: targetGroup,
+      addressBookGuid: dto.addressBookGuid,
+      targetUserId: finalTargetUserId,
+      targetGroupId: finalTargetGroupId,
       rule,
     };
 
@@ -158,7 +163,7 @@ export class AddressBookRuleService {
     }
 
     // 检查用户是否有权限修改该规则
-    await this.checkAddressBookPermissions(rule.ab, userId);
+    await this.checkAddressBookPermissions(rule.addressBookGuid, userId);
 
     // 更新规则权限
     rule.rule = dto.rule;
@@ -182,7 +187,7 @@ export class AddressBookRuleService {
       throw new BadRequestException('至少需要一个规则 GUID');
     }
 
-    // 获取所有规则的信息（用于权限检查和获取 ab 字段）
+    // 获取所有规则的信息（用于权限检查和获取 addressBookGuid 字段）
     const rules = await this.ruleRepository.find({
       where: ruleGuids.map((g) => ({ guid: g })),
       relations: ['addressBook'],
@@ -194,18 +199,268 @@ export class AddressBookRuleService {
 
     // 检查第一个规则的地址簿权限（假设所有规则都属于同一地址簿）
     const firstRule = rules[0];
-    await this.checkAddressBookPermissions(firstRule.ab, userId);
+    await this.checkAddressBookPermissions(firstRule.addressBookGuid, userId);
 
     // 由于 AddressBookRule 有多个主键，需要使用完整的主键对象删除
     for (const rule of rules) {
       await this.ruleRepository.delete({
         guid: rule.guid,
-        ab: rule.ab,
+        addressBookGuid: rule.addressBookGuid,
       });
     }
 
     return { message: '删除成功' };
   }
+
+  // ============ 共享地址簿管理（替代 AddressBookShareService） ============
+
+  /**
+   * 获取共享地址簿列表
+   * 查询所有共享给当前用户的地址簿
+   * 
+   * @param userId 用户 ID
+   * @param query 分页查询参数
+   * @returns 共享地址簿列表和总数
+   */
+  async getSharedAddressBooks(userId: string, query: PaginationDto) {
+    const { current = 1, pageSize = 100 } = query;
+    const skip = (current - 1) * pageSize;
+
+    const [rules, total] = await this.ruleRepository.findAndCount({
+      where: { 
+        targetUserId: userId,
+        targetGroupId: IsNull(),  // 只查询用户规则
+      },
+      relations: ['addressBook'],
+      skip,
+      take: pageSize,
+    });
+
+    // 收集所有 owner (用户 GUID)
+    const ownerGuids = [...new Set(
+      rules
+        .map(r => r.addressBook?.owner)
+        .filter((guid): guid is string => !!guid)
+    )];
+
+    // 批量查询用户信息
+    const users = ownerGuids.length > 0
+      ? await this.userRepository.find({
+          where: { guid: In(ownerGuids) },
+          select: ['guid', 'username'],
+        })
+      : [];
+    const userMap = new Map(users.map(u => [u.guid, u.username]));
+
+    // 组装返回数据
+    const data = rules.map(r => ({
+      guid: r.addressBookGuid,
+      name: r.addressBook?.name || '',
+      owner: userMap.get(r.addressBook?.owner || '') || r.addressBook?.owner || '',
+      note: r.addressBook?.note || '',
+      rule: r.rule,
+      info: r.addressBook?.info ? JSON.parse(r.addressBook.info) : {},
+    }));
+
+    return { total, data };
+  }
+
+  /**
+   * 添加共享地址簿
+   * 创建一个新的共享地址簿记录
+   *
+   * @param name 地址簿名称
+   * @param ownerUserId 所有者用户 ID
+   * @param note 备注（可选）
+   * @param password 密码（可选）
+   * @returns 新创建的地址簿 GUID
+   * @throws ConflictException 如果名称已存在
+   */
+  async addSharedAddressBook(
+    name: string,
+    ownerUserId: string,
+    note?: string,
+    password?: string,
+  ): Promise<string> {
+    // 检查名称是否已存在
+    const existing = await this.addressBookRepository.findOne({
+      where: { name, owner: ownerUserId, isPersonal: false },
+    });
+
+    if (existing) {
+      throw new ConflictException('地址簿名称已存在');
+    }
+
+    // 创建地址簿
+    const addressBook = this.addressBookRepository.create({
+      guid: this.generateGuid(),
+      name,
+      owner: ownerUserId,
+      isPersonal: false,
+      note,
+      info: password ? JSON.stringify({ password }) : undefined,
+    });
+
+    await this.addressBookRepository.save(addressBook);
+    return addressBook.guid;
+  }
+
+  /**
+   * 更新共享地址簿
+   * 更新现有共享地址簿的信息
+   *
+   * @param guid 地址簿 GUID
+   * @param name 新名称（可选）
+   * @param note 新备注（可选）
+   * @param owner 新所有者（可选）
+   * @param password 新密码（可选）
+   * @throws NotFoundException 地址簿不存在
+   * @throws ForbiddenException 无权限修改
+   * @throws ConflictException 名称已存在
+   */
+  async updateSharedAddressBook(
+    guid: string,
+    name?: string,
+    note?: string,
+    owner?: string,
+    password?: string,
+  ): Promise<void> {
+    const addressBook = await this.addressBookRepository.findOne({
+      where: { guid },
+    });
+
+    if (!addressBook) {
+      throw new ConflictException('地址簿不存在');
+    }
+
+    // 检查名称是否已被其他地址簿使用
+    if (name && name !== addressBook.name) {
+      const existing = await this.addressBookRepository.findOne({
+        where: { name, owner: addressBook.owner, isPersonal: false },
+      });
+      if (existing && existing.guid !== guid) {
+        throw new ConflictException('地址簿名称已存在');
+      }
+    }
+
+    // 更新字段
+    if (name !== undefined) Object.assign(addressBook, { name });
+    if (note !== undefined) Object.assign(addressBook, { note });
+    if (owner !== undefined) Object.assign(addressBook, { owner });
+    if (password !== undefined) {
+      Object.assign(addressBook, { info: password ? JSON.stringify({ password }) : undefined });
+    }
+
+    await this.addressBookRepository.save(addressBook);
+  }
+
+  /**
+   * 删除共享地址簿
+   * 删除一个或多个共享地址簿
+   *
+   * @param guids 地址簿 GUID 数组
+   * @param userId 用户 ID（需要所有者权限）
+   * @throws ForbiddenException 无权限删除
+   */
+  async deleteSharedAddressBooks(
+    guids: string[],
+    userId: string,
+  ): Promise<void> {
+    for (const guid of guids) {
+      const addressBook = await this.addressBookRepository.findOne({
+        where: { guid },
+      });
+
+      if (!addressBook) {
+        continue; // 跳过不存在的地址簿
+      }
+
+      // 检查所有权
+      if (addressBook.owner !== userId) {
+        throw new ForbiddenException(`无权删除地址簿 '${addressBook.name}'`);
+      }
+
+      // 删除地址簿及其关联的规则记录
+      await this.addressBookRepository.delete(guid);
+      await this.ruleRepository.delete({ addressBookGuid: guid });
+    }
+  }
+
+  /**
+   * 共享地址簿给其他用户
+   * 将地址簿共享给指定用户，并设置权限级别
+   * 
+   * @param addressBookGuid 地址簿 GUID
+   * @param targetUserId 目标用户 ID
+   * @param rule 共享权限级别
+   * @param ownerUserId 地址簿所有者用户 ID
+   * @returns 操作结果
+   * @throws ForbiddenException 当用户没有完全控制权限时抛出
+   */
+  async shareAddressBook(
+    addressBookGuid: string,
+    targetUserId: string,
+    rule: ShareRule,
+    ownerUserId: string,
+  ) {
+    // 验证所有权
+    await this.checkAddressBookPermissions(addressBookGuid, ownerUserId);
+
+    // 检查是否已共享
+    let sharedRule = await this.ruleRepository.findOne({
+      where: { 
+        addressBookGuid, 
+        targetUserId,
+        targetGroupId: IsNull(),
+      },
+    });
+
+    if (sharedRule) {
+      // 已共享，更新权限级别
+      sharedRule.rule = rule;
+    } else {
+      // 未共享，创建新的规则记录
+      sharedRule = this.ruleRepository.create({
+        guid: uuidv4(),
+        addressBookGuid,
+        targetUserId,
+        rule,
+      });
+    }
+
+    await this.ruleRepository.save(sharedRule);
+    return { message: '共享成功' };
+  }
+
+  /**
+   * 取消地址簿共享
+   * 取消地址簿对指定用户的共享
+   * 
+   * @param addressBookGuid 地址簿 GUID
+   * @param targetUserId 目标用户 ID
+   * @param ownerUserId 地址簿所有者用户 ID
+   * @returns 操作结果
+   * @throws ForbiddenException 当用户没有完全控制权限时抛出
+   */
+  async unshareAddressBook(
+    addressBookGuid: string,
+    targetUserId: string,
+    ownerUserId: string,
+  ) {
+    // 验证所有权
+    await this.checkAddressBookPermissions(addressBookGuid, ownerUserId);
+
+    // 删除规则记录
+    await this.ruleRepository.delete({
+      addressBookGuid,
+      targetUserId,
+      targetGroupId: IsNull(),
+    });
+
+    return { message: '取消共享成功' };
+  }
+
+  // ============ 私有辅助方法 ============
 
   /**
    * 检查用户对地址簿的权限
@@ -240,15 +495,29 @@ export class AddressBookRuleService {
     return {
       guid: rule.guid,
       addressBook: {
-        guid: rule.ab,
+        guid: rule.addressBookGuid,
         name: rule.addressBook?.name,
       },
-      user: rule.user,
-      group: rule.group,
+      user: rule.targetUserId,
+      group: rule.targetGroupId,
       rule: rule.rule,
       ruleType: rule.ruleType,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
     };
+  }
+
+  /**
+   * 生成 GUID
+   * 使用简单的 UUID 生成方式
+   *
+   * @returns UUID 字符串
+   */
+  private generateGuid(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
   }
 }
