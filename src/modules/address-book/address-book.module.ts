@@ -6,6 +6,7 @@ import {
   AddressBookPeerService,
   AddressBookTagService,
   AddressBookLegacyService,
+  AddressBookPermissionService,
   AddressBookRuleService,
 } from './services';
 import { AddressBook, AddressBookPeer, AddressBookTag, AddressBookPeerTag, AddressBookRule } from './entities';
@@ -38,6 +39,7 @@ import { User } from '../user/entities/user.entity';
     AddressBookPeerService,
     AddressBookTagService,
     AddressBookLegacyService,
+    AddressBookPermissionService,
     AddressBookRuleService,
   ],
   exports: [AddressBookService],

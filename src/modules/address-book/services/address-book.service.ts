@@ -1,14 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { AddressBook, AddressBookRule, ShareRule } from '../entities';
+import { AddressBook, ShareRule } from '../entities';
 import { User } from '../../user/entities/user.entity';
 import { PaginationDto, PeersQueryDto, AddPeerDto, UpdatePeerDto, AddTagDto, UpdateTagDto, RenameTagDto } from '../dto';
 import { AddressBookPeerService } from './address-book-peer.service';
 import { AddressBookTagService } from './address-book-tag.service';
 import { AddressBookLegacyService } from './address-book-legacy.service';
 import { AddressBookRuleService } from './address-book-rule.service';
+import { AddressBookPermissionService } from './address-book-permission.service';
 
 /**
  * 地址簿服务
@@ -30,67 +31,14 @@ export class AddressBookService {
   constructor(
     @InjectRepository(AddressBook)
     private addressBookRepository: Repository<AddressBook>,
-    @InjectRepository(AddressBookRule)
-    private ruleRepository: Repository<AddressBookRule>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private readonly peerService: AddressBookPeerService,
     private readonly tagService: AddressBookTagService,
     private readonly ruleService: AddressBookRuleService,
     private readonly legacyService: AddressBookLegacyService,
+    private readonly permissionService: AddressBookPermissionService,
   ) {}
-
-  /**
-   * 检查用户是否有权限访问地址簿
-   * 验证用户对地址簿的访问权限，包括所有权检查和规则权限检查
-   * 
-   * @param addressBookGuid 地址簿 GUID
-   * @param userId 用户 ID
-   * @param requiredRule 需要的权限级别（默认为只读）
-   * @returns 地址簿对象
-   * @throws NotFoundException 当地址簿不存在时抛出
-   * @throws ForbiddenException 当用户无权限或权限不足时抛出
-   * @private
-   */
-  private async checkAddressBookAccess(
-    addressBookGuid: string,
-    userId: string,
-    requiredRule: ShareRule = ShareRule.READ,
-  ): Promise<AddressBook> {
-    const addressBook = await this.addressBookRepository.findOne({
-      where: { guid: addressBookGuid },
-    });
-
-    if (!addressBook) {
-      throw new NotFoundException('地址簿不存在');
-    }
-
-    // 如果是所有者，拥有完全权限
-    if (addressBook.owner === userId) {
-      return addressBook;
-    }
-
-    // 检查规则权限（用户规则）
-    const rule = await this.ruleRepository.findOne({
-      where: { 
-        addressBookGuid, 
-        targetUserId: userId,
-        targetGroupId: IsNull(),  // 确保是用户规则
-      },
-    });
-
-    if (!rule) {
-      throw new ForbiddenException('无权访问此地址簿');
-    }
-
-    // 检查权限级别
-    if (rule.rule < requiredRule) {
-      const requiredPermission = requiredRule === ShareRule.READ_WRITE ? '读写' : '完全控制';
-      throw new ForbiddenException(`需要${requiredPermission}权限`);
-    }
-
-    return addressBook;
-  }
 
   // ============ 地址簿基础管理 ============
 
@@ -141,7 +89,7 @@ export class AddressBookService {
    * @returns 设备列表和总数
    */
   async getPeers(query: PeersQueryDto, userId?: string) {
-    return this.peerService.getPeers(query, userId, this.checkAddressBookAccess.bind(this));
+    return this.peerService.getPeers(query, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   /**
@@ -158,7 +106,7 @@ export class AddressBookService {
       addressBookGuid,
       dto,
       userId,
-      this.checkAddressBookAccess.bind(this),
+      this.permissionService.checkAddressBookAccess.bind(this.permissionService),
       this.tagService.getOrCreateTag.bind(this.tagService),
     );
   }
@@ -177,7 +125,7 @@ export class AddressBookService {
       addressBookGuid,
       dto,
       userId,
-      this.checkAddressBookAccess.bind(this),
+      this.permissionService.checkAddressBookAccess.bind(this.permissionService),
       this.tagService.getOrCreateTag.bind(this.tagService),
     );
   }
@@ -196,7 +144,7 @@ export class AddressBookService {
       addressBookGuid,
       ids,
       userId,
-      this.checkAddressBookAccess.bind(this),
+      this.permissionService.checkAddressBookAccess.bind(this.permissionService),
     );
   }
 
@@ -211,7 +159,7 @@ export class AddressBookService {
    * @returns 标签列表
    */
   async getTags(addressBookGuid: string, userId?: string) {
-    return this.tagService.getTags(addressBookGuid, userId, this.checkAddressBookAccess.bind(this));
+    return this.tagService.getTags(addressBookGuid, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   /**
@@ -224,7 +172,7 @@ export class AddressBookService {
    * @returns 操作结果
    */
   async addTag(addressBookGuid: string, dto: AddTagDto, userId?: string) {
-    return this.tagService.addTag(addressBookGuid, dto, userId, this.checkAddressBookAccess.bind(this));
+    return this.tagService.addTag(addressBookGuid, dto, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   /**
@@ -237,7 +185,7 @@ export class AddressBookService {
    * @returns 操作结果
    */
   async renameTag(addressBookGuid: string, dto: RenameTagDto, userId?: string) {
-    return this.tagService.renameTag(addressBookGuid, dto, userId, this.checkAddressBookAccess.bind(this));
+    return this.tagService.renameTag(addressBookGuid, dto, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   /**
@@ -250,7 +198,7 @@ export class AddressBookService {
    * @returns 操作结果
    */
   async updateTag(addressBookGuid: string, dto: UpdateTagDto, userId?: string) {
-    return this.tagService.updateTag(addressBookGuid, dto, userId, this.checkAddressBookAccess.bind(this));
+    return this.tagService.updateTag(addressBookGuid, dto, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   /**
@@ -263,7 +211,7 @@ export class AddressBookService {
    * @returns 操作结果
    */
   async deleteTags(addressBookGuid: string, names: string[], userId?: string) {
-    return this.tagService.deleteTags(addressBookGuid, names, userId, this.checkAddressBookAccess.bind(this));
+    return this.tagService.deleteTags(addressBookGuid, names, userId, this.permissionService.checkAddressBookAccess.bind(this.permissionService));
   }
 
   // ============ 共享管理（委托给 RuleService） ============

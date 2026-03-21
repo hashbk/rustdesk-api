@@ -10,8 +10,8 @@ import { Repository, In, IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { AddressBookRule, AddressBook, ShareRule } from '../entities';
 import { User } from '../../user/entities/user.entity';
-import { AddressBookService } from './address-book.service';
 import { RuleQueryDto, CreateRuleDto, UpdateRuleDto, PaginationDto } from '../dto';
+import { AddressBookPermissionService } from './address-book-permission.service';
 
 /**
  * 地址簿规则服务
@@ -41,7 +41,7 @@ export class AddressBookRuleService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
 
-    private readonly addressBookService: AddressBookService,
+    private readonly permissionService: AddressBookPermissionService,
   ) {}
 
   /**
@@ -55,7 +55,7 @@ export class AddressBookRuleService {
    */
   async getRules(query: RuleQueryDto, userId: string) {
     // 检查用户是否有权限访问该地址簿
-    await this.checkAddressBookPermissions(query.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(query.addressBookGuid, userId);
 
     const { addressBookGuid, current = 1, pageSize = 30 } = query;
 
@@ -92,7 +92,7 @@ export class AddressBookRuleService {
    */
   async createRule(dto: CreateRuleDto, userId: string) {
     // 检查地址簿是否存在且用户有权限修改
-    await this.checkAddressBookPermissions(dto.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(dto.addressBookGuid, userId);
 
     // 确定规则类型和目标
     const { targetUserId, targetGroupId, rule = 1 } = dto;
@@ -163,7 +163,7 @@ export class AddressBookRuleService {
     }
 
     // 检查用户是否有权限修改该规则
-    await this.checkAddressBookPermissions(rule.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId);
 
     // 更新规则权限
     rule.rule = dto.rule;
@@ -199,7 +199,7 @@ export class AddressBookRuleService {
 
     // 检查第一个规则的地址簿权限（假设所有规则都属于同一地址簿）
     const firstRule = rules[0];
-    await this.checkAddressBookPermissions(firstRule.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(firstRule.addressBookGuid, userId);
 
     // 由于 AddressBookRule 有多个主键，需要使用完整的主键对象删除
     for (const rule of rules) {
@@ -404,7 +404,7 @@ export class AddressBookRuleService {
     ownerUserId: string,
   ) {
     // 验证所有权
-    await this.checkAddressBookPermissions(addressBookGuid, ownerUserId);
+    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId);
 
     // 检查是否已共享
     let sharedRule = await this.ruleRepository.findOne({
@@ -448,7 +448,7 @@ export class AddressBookRuleService {
     ownerUserId: string,
   ) {
     // 验证所有权
-    await this.checkAddressBookPermissions(addressBookGuid, ownerUserId);
+    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId);
 
     // 删除规则记录
     await this.ruleRepository.delete({
@@ -461,30 +461,6 @@ export class AddressBookRuleService {
   }
 
   // ============ 私有辅助方法 ============
-
-  /**
-   * 检查用户对地址簿的权限
-   * 调用 AddressBookService 的私有方法（因为它们在同一个模块）
-   *
-   * @param addressBookGuid 地址簿 GUID
-   * @param userId 用户 ID
-   * @throws ForbiddenException 无权限访问
-   */
-  private async checkAddressBookPermissions(
-    addressBookGuid: string,
-    userId: string,
-  ): Promise<void> {
-    // 调用 AddressBookService 的私有方法
-    // 注意：由于它们是同一个模块，可以直接访问私有方法
-    try {
-      await (this.addressBookService as any).checkAddressBookAccess(
-        addressBookGuid,
-        userId,
-      );
-    } catch (error) {
-      throw error;
-    }
-  }
 
   /**
    * 将规则转换为响应格式
