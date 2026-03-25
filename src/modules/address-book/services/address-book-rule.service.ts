@@ -55,18 +55,18 @@ export class AddressBookRuleService {
    */
   async getRules(query: RuleQueryDto, userId: string) {
     // 检查用户是否有权限访问该地址簿
-    await this.permissionService.checkAddressBookAccess(query.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(query.ab, userId);
 
-    const { addressBookGuid, current = 1, pageSize = 30 } = query;
+    const { ab, current = 1, pageSize = 30 } = query;
 
     // 查询总数
     const total = await this.ruleRepository.count({
-      where: { addressBookGuid },
+      where: { addressBookGuid: ab },
     });
 
     // 查询规则列表
     const rules = await this.ruleRepository.find({
-      where: { addressBookGuid },
+      where: { addressBookGuid: ab },
       relations: ['addressBook'],
       skip: (current - 1) * pageSize,
       take: pageSize,
@@ -92,25 +92,37 @@ export class AddressBookRuleService {
    */
   async createRule(dto: CreateRuleDto, userId: string) {
     // 检查地址簿是否存在且用户有权限修改
-    await this.permissionService.checkAddressBookAccess(dto.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(dto.guid, userId);
 
     // 确定规则类型和目标
-    const { targetUserId, targetGroupId, rule = 1 } = dto;
+    const { user, group, rule = 1 } = dto;
 
     // 验证用户和组互斥
-    if (targetUserId && targetGroupId) {
+    if (user && group) {
       throw new ConflictException('用户和组不能同时指定');
     }
 
     // 如果没有指定用户或组，默认为 everyone
-    const finalTargetUserId = targetUserId || '';
-    const finalTargetGroupId = targetGroupId || '';
+    let finalTargetUserId = user || '';
+    let finalTargetGroupId = group || '';
+
+    // 如果提供了用户名而不是用户GUID，尝试查找用户
+    if (finalTargetUserId && !finalTargetUserId.includes('-')) {
+      const userEntity = await this.userRepository.findOne({
+        where: { username: finalTargetUserId },
+      });
+      if (userEntity) {
+        finalTargetUserId = userEntity.guid;
+      } else {
+        throw new NotFoundException('用户不存在');
+      }
+    }
 
     // 检查是否已存在相同规则
     const whereClause: any = {
-      addressBookGuid: dto.addressBookGuid,
+      addressBookGuid: dto.guid,
     };
-    
+
     // 只添加非空值到 where 子句
     if (finalTargetUserId) {
       whereClause.targetUserId = finalTargetUserId;
@@ -118,7 +130,7 @@ export class AddressBookRuleService {
     if (finalTargetGroupId) {
       whereClause.targetGroupId = finalTargetGroupId;
     }
-    
+
     const existingRule = await this.ruleRepository.findOne({
       where: whereClause,
     });
@@ -130,7 +142,7 @@ export class AddressBookRuleService {
     // 创建新规则
     const newRule: Partial<AddressBookRule> = {
       guid: uuidv4(),
-      addressBookGuid: dto.addressBookGuid,
+      addressBookGuid: dto.guid,
       targetUserId: finalTargetUserId,
       targetGroupId: finalTargetGroupId,
       rule,
@@ -223,14 +235,16 @@ export class AddressBookRuleService {
    * @returns 共享地址簿列表和总数
    */
   async getSharedAddressBooks(userId: string, query: PaginationDto) {
-    const { current = 1, pageSize = 100 } = query;
+    const { current = 1, pageSize = 100, name } = query;
     const skip = (current - 1) * pageSize;
 
+    const whereCondition: any = {
+      targetUserId: userId,
+      targetGroupId: IsNull(),  // 只查询用户规则
+    };
+
     const [rules, total] = await this.ruleRepository.findAndCount({
-      where: { 
-        targetUserId: userId,
-        targetGroupId: IsNull(),  // 只查询用户规则
-      },
+      where: whereCondition,
       relations: ['addressBook'],
       skip,
       take: pageSize,
@@ -253,7 +267,7 @@ export class AddressBookRuleService {
     const userMap = new Map(users.map(u => [u.guid, u.username]));
 
     // 组装返回数据
-    const data = rules.map(r => ({
+    let data = rules.map(r => ({
       guid: r.addressBookGuid,
       name: r.addressBook?.name || '',
       owner: userMap.get(r.addressBook?.owner || '') || r.addressBook?.owner || '',
@@ -261,6 +275,11 @@ export class AddressBookRuleService {
       rule: r.rule,
       info: r.addressBook?.info ? JSON.parse(r.addressBook.info) : {},
     }));
+
+    // 如果提供了name参数，进行过滤
+    if (name) {
+      data = data.filter(item => item.name.includes(name));
+    }
 
     return { total, data };
   }
@@ -302,6 +321,16 @@ export class AddressBookRuleService {
     });
 
     await this.addressBookRepository.save(addressBook);
+
+    // 自动给创建者添加full权限的规则
+    const rule = this.ruleRepository.create({
+      guid: this.generateGuid(),
+      addressBookGuid: addressBook.guid,
+      targetUserId: ownerUserId,
+      rule: 3, // full control
+    });
+    await this.ruleRepository.save(rule);
+
     return addressBook.guid;
   }
 

@@ -46,8 +46,12 @@ export class AddressBookPeerService {
     userId?: string,
     checkAccess?: (ab: string, userId: string, rule: ShareRule) => Promise<AddressBook>,
   ) {
-    const { current = 1, pageSize = 100, ab } = query;
+    const { current = 1, pageSize = 100, ab, id, alias } = query;
     const skip = (current - 1) * pageSize;
+
+    // 去除参数中的 % 通配符（ab.py 传递的参数可能包含 % 作为通配符）
+    const filterId = id?.replace(/%/g, '');
+    const filterAlias = alias?.replace(/%/g, '');
 
     const addressBook = await this.addressBookRepository.findOne({
       where: { guid: ab },
@@ -62,8 +66,10 @@ export class AddressBookPeerService {
       await checkAccess(ab, userId, ShareRule.READ);
     }
 
+    const whereCondition: any = { addressBookGuid: ab };
+
     const [peers, total] = await this.addressBookPeerRepository.findAndCount({
-      where: { addressBookGuid: ab },
+      where: whereCondition,
       relations: ['tags'],
       skip,
       take: pageSize,
@@ -89,7 +95,7 @@ export class AddressBookPeerService {
     const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
     // 组装返回数据
-    const data = peers.map(p => {
+    let data = peers.map(p => {
       const peerRecord = peerMap.get(p.deviceId);
       const sysinfo = sysinfoMap.get(p.deviceId);
       return {
@@ -104,6 +110,16 @@ export class AddressBookPeerService {
         note: p.note,
       };
     });
+
+    // 如果提供了id参数，进行过滤
+    if (filterId) {
+      data = data.filter(item => item.id && item.id.includes(filterId));
+    }
+
+    // 如果提供了alias参数，进行过滤
+    if (filterAlias) {
+      data = data.filter(item => item.alias && item.alias.includes(filterAlias));
+    }
 
     return { total, data };
   }

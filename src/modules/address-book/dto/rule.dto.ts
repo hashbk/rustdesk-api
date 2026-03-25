@@ -5,42 +5,22 @@ import {
   IsNotEmpty,
   Min,
   Max,
-  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaginationDto } from './query.dto';
 
 /**
  * 地址簿规则分页查询参数
  * 用于查询地址簿规则列表
  */
-export class RuleQueryDto {
+export class RuleQueryDto extends PaginationDto {
   /**
    * 地址簿 GUID
    * 指定要查询规则的地址簿
    */
   @IsString()
   @IsNotEmpty()
-  addressBookGuid: string;
-
-  /**
-   * 每页数量
-   * 默认值：30
-   */
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  pageSize?: number = 30;
-
-  /**
-   * 当前页码
-   * 默认值：1
-   */
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  current?: number = 1;
+  ab: string;
 }
 
 /**
@@ -54,29 +34,27 @@ export class CreateRuleDto {
    */
   @IsString()
   @IsNotEmpty()
-  addressBookGuid: string;
+  guid: string;
 
   /**
    * 目标用户 GUID
    * 规则类型为 "user" 时必需
-   * 与 targetGroupId 互斥
+   * 与 group 互斥
    */
   @IsOptional()
-  @ValidateIf((o) => o.ruleType !== 'group' && o.ruleType !== 'everyone')
   @IsString()
   @IsNotEmpty()
-  targetUserId?: string;
+  user?: string;
 
   /**
    * 目标组 GUID
    * 规则类型为 "group" 时必需
-   * 与 targetUserId 互斥
+   * 与 user 互斥
    */
   @IsOptional()
-  @ValidateIf((o) => o.ruleType !== 'user' && o.ruleType !== 'everyone')
   @IsString()
   @IsNotEmpty()
-  targetGroupId?: string;
+  group?: string;
 
   /**
    * 权限级别
