@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, MoreThanOrEqual } from 'typeorm';
 import { ConnectionAudit } from './entities/connection-audit.entity';
 import { FileAudit } from './entities/file-audit.entity';
 import { AlarmAudit } from './entities/alarm-audit.entity';
@@ -175,5 +175,194 @@ export class AuditService {
     });
 
     return await this.alarmAuditRepository.save(alarmAudit);
+  }
+
+  /**
+   * 查询连接审计
+   * @param filters 过滤条件
+   * @returns 连接审计列表
+   */
+  async queryConnectionAudits(filters: {
+    remote?: string;
+    conn_type?: number;
+    pageSize?: number;
+    current?: number;
+    created_at?: string;
+  }) {
+    const { remote, conn_type, pageSize = 10, current = 1, created_at } = filters;
+    const skip = (current - 1) * pageSize;
+
+    const queryBuilder = this.connectionAuditRepository
+      .createQueryBuilder('ca')
+      .select([
+        'ca.id',
+        'ca.deviceId',
+        'ca.deviceUuid',
+        'ca.connId',
+        'ca.ip',
+        'ca.action',
+        'ca.peerId',
+        'ca.peerName',
+        'ca.type',
+        'ca.requestedAt',
+        'ca.establishedAt',
+        'ca.closedAt',
+        'ca.createdAt',
+      ]);
+
+    // 按远程设备ID过滤
+    if (remote) {
+      queryBuilder.andWhere('ca.peerId LIKE :remote', { remote: `%${remote}%` });
+    }
+
+    // 按连接类型过滤
+    if (conn_type !== undefined) {
+      queryBuilder.andWhere('ca.type = :conn_type', { conn_type });
+    }
+
+    // 按创建时间过滤
+    if (created_at) {
+      const createdAt = new Date(created_at);
+      queryBuilder.andWhere('ca.createdAt >= :createdAt', { createdAt });
+    }
+
+    queryBuilder
+      .orderBy('ca.createdAt', 'DESC')
+      .skip(skip)
+      .take(pageSize);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+    };
+  }
+
+  /**
+   * 查询文件审计
+   * @param filters 过滤条件
+   * @returns 文件审计列表
+   */
+  async queryFileAudits(filters: {
+    remote?: string;
+    pageSize?: number;
+    current?: number;
+    created_at?: string;
+  }) {
+    const { remote, pageSize = 10, current = 1, created_at } = filters;
+    const skip = (current - 1) * pageSize;
+
+    const queryBuilder = this.fileAuditRepository
+      .createQueryBuilder('fa')
+      .select([
+        'fa.id',
+        'fa.deviceId',
+        'fa.deviceUuid',
+        'fa.peerId',
+        'fa.type',
+        'fa.path',
+        'fa.isFile',
+        'fa.clientIp',
+        'fa.clientName',
+        'fa.fileCount',
+        'fa.files',
+        'fa.createdAt',
+      ]);
+
+    // 按远程设备ID过滤
+    if (remote) {
+      queryBuilder.andWhere('fa.peerId LIKE :remote', { remote: `%${remote}%` });
+    }
+
+    // 按创建时间过滤
+    if (created_at) {
+      const createdAt = new Date(created_at);
+      queryBuilder.andWhere('fa.createdAt >= :createdAt', { createdAt });
+    }
+
+    queryBuilder
+      .orderBy('fa.createdAt', 'DESC')
+      .skip(skip)
+      .take(pageSize);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+    };
+  }
+
+  /**
+   * 查询告警审计
+   * @param filters 过滤条件
+   * @returns 告警审计列表
+   */
+  async queryAlarmAudits(filters: {
+    device?: string;
+    pageSize?: number;
+    current?: number;
+    created_at?: string;
+  }) {
+    const { device, pageSize = 10, current = 1, created_at } = filters;
+    const skip = (current - 1) * pageSize;
+
+    const queryBuilder = this.alarmAuditRepository
+      .createQueryBuilder('aa')
+      .select([
+        'aa.id',
+        'aa.deviceId',
+        'aa.deviceUuid',
+        'aa.typ',
+        'aa.infoId',
+        'aa.infoIp',
+        'aa.infoName',
+        'aa.createdAt',
+      ]);
+
+    // 按设备ID过滤
+    if (device) {
+      queryBuilder.andWhere('aa.deviceId LIKE :device', { device: `%${device}%` });
+    }
+
+    // 按创建时间过滤
+    if (created_at) {
+      const createdAt = new Date(created_at);
+      queryBuilder.andWhere('aa.createdAt >= :createdAt', { createdAt });
+    }
+
+    queryBuilder
+      .orderBy('aa.createdAt', 'DESC')
+      .skip(skip)
+      .take(pageSize);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+    };
+  }
+
+  /**
+   * 查询控制台审计
+   * @param filters 过滤条件
+   * @returns 控制台审计列表
+   */
+  async queryConsoleAudits(filters: {
+    operator?: string;
+    pageSize?: number;
+    current?: number;
+    created_at?: string;
+  }) {
+    const { operator, pageSize = 10, current = 1, created_at } = filters;
+    const skip = (current - 1) * pageSize;
+
+    // 控制台审计暂时没有实体，返回空列表
+    return {
+      data: [],
+      total: 0,
+    };
   }
 }
