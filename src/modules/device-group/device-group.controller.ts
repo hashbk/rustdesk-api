@@ -233,4 +233,71 @@ export class DeviceGroupController {
   ) {
     return this.deviceGroupService.getDevices(userId, query, isAdmin);
   }
+
+  /**
+   * 禁用设备
+   * 管理员可以禁用设备
+   *
+   * @param guid 设备GUID
+   * @returns 禁用结果
+   */
+  @Post('devices/:guid/disable')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async disableDevice(@Param('guid') guid: string) {
+    await this.deviceGroupService.disableDevice(guid);
+    return { message: '设备已禁用' };
+  }
+
+  /**
+   * 启用设备
+   * 管理员可以启用设备
+   *
+   * @param guid 设备GUID
+   * @returns 启用结果
+   */
+  @Post('devices/:guid/enable')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async enableDevice(@Param('guid') guid: string) {
+    await this.deviceGroupService.enableDevice(guid);
+    return { message: '设备已启用' };
+  }
+
+  /**
+   * 删除设备
+   * 管理员可以删除设备
+   *
+   * @param guid 设备GUID
+   * @returns 删除结果
+   */
+  @Delete('devices/:guid')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async deleteDevice(@Param('guid') guid: string) {
+    await this.deviceGroupService.deleteDevice(guid);
+    return { message: '设备已删除' };
+  }
+
+  /**
+   * 分配设备属性
+   * 管理员可以分配设备属性
+   *
+   * @param guid 设备GUID
+   * @param body 分配数据
+   * @returns 分配结果
+   */
+  @Post('devices/:guid/assign')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async assignDevice(
+    @Param('guid') guid: string,
+    @Body() body: {
+      type: string;
+      value: string;
+    }
+  ) {
+    await this.deviceGroupService.assignDevice(guid, body.type, body.value);
+    return { message: '设备属性已分配' };
+  }
 }

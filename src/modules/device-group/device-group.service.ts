@@ -364,10 +364,11 @@ export class DeviceGroupService {
       user_name?: string;
       device_username?: string;
       device_group_name?: string;
+      group_name?: string;
     },
     isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
-    const { current, pageSize, id, device_name, user_name, device_username, device_group_name } = query;
+    const { current, pageSize, id, device_name, user_name, device_username, device_group_name, group_name } = query;
     const skip = (current - 1) * pageSize;
 
     let queryBuilder = this.peerRepository
@@ -378,6 +379,9 @@ export class DeviceGroupService {
         'peer.uuid',
         'peer.userGuid',
         'peer.deviceGroupGuid',
+        'peer.ver',
+        'peer.modifiedAt',
+        'peer.updatedAt',
         'dg.name',
       ]);
 
@@ -426,6 +430,11 @@ export class DeviceGroupService {
       queryBuilder = queryBuilder.andWhere('dg.name = :deviceGroupName', { deviceGroupName: device_group_name });
     }
 
+    // 按组名过滤（通过设备组）
+    if (group_name) {
+      queryBuilder = queryBuilder.andWhere('dg.name LIKE :groupName', { groupName: `%${group_name}%` });
+    }
+
     const [peers, total] = await queryBuilder
       .orderBy('peer.id', 'ASC')
       .skip(skip)
@@ -434,13 +443,109 @@ export class DeviceGroupService {
 
     return {
       data: peers.map(p => ({
+        guid: p.uuid,
         id: p.id,
-        uuid: p.uuid,
         userGuid: p.userGuid,
         deviceGroupGuid: p.deviceGroupGuid,
         device_group_name: p.deviceGroup?.name || '',
+        last_online: p.updatedAt,
       })),
       total,
     };
+  }
+
+  /**
+   * 禁用设备
+   * @param guid 设备GUID
+   */
+  async disableDevice(guid: string) {
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: guid },
+    });
+    if (!peer) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    peer.userGuid = '';
+    await this.peerRepository.save(peer);
+  }
+
+  /**
+   * 启用设备
+   * @param guid 设备GUID
+   */
+  async enableDevice(guid: string) {
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: guid },
+    });
+    if (!peer) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    throw new BadRequestException('无法启用设备，需要重新分配用户');
+  }
+
+  /**
+   * 删除设备
+   * @param guid 设备GUID
+   */
+  async deleteDevice(guid: string) {
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: guid },
+    });
+    if (!peer) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    await this.peerRepository.remove(peer);
+  }
+
+  /**
+   * 分配设备属性
+   * @param guid 设备GUID
+   * @param type 属性类型
+   * @param value 属性值
+   */
+  async assignDevice(guid: string, type: string, value: string) {
+    const peer = await this.peerRepository.findOne({
+      where: { uuid: guid },
+    });
+    if (!peer) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    switch (type) {
+      case 'user_name':
+        const user = await this.userRepository.findOne({
+          where: { username: value },
+        });
+        if (!user) {
+          throw new NotFoundException('用户不存在');
+        }
+        peer.userGuid = user.guid;
+        break;
+      case 'device_group_name':
+        const deviceGroup = await this.deviceGroupRepository.findOne({
+          where: { name: value },
+        });
+        if (!deviceGroup) {
+          throw new NotFoundException('设备组不存在');
+        }
+        peer.deviceGroupGuid = deviceGroup.guid;
+        break;
+      case 'note':
+        // note字段不存在于Peer实体中，暂时忽略
+        break;
+      case 'device_username':
+      case 'device_name':
+      case 'ab':
+      case 'strategy_name':
+        // 这些字段需要从Sysinfo中获取和更新
+        break;
+      default:
+        throw new BadRequestException(`不支持的属性类型: ${type}`);
+    }
+
+    await this.peerRepository.save(peer);
   }
 }
