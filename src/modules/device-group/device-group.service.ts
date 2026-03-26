@@ -1,8 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import * as uuid from 'uuid';
 import { DeviceGroup } from './entities/device-group.entity';
 import { User, UserStatus } from '../user/entities/user.entity';
+import { Peer } from '../../common/entities/peer.entity';
+import { DeviceGroupUserPermission } from './entities/device-group-user-permission.entity';
 
 @Injectable()
 /**
@@ -24,6 +27,10 @@ export class DeviceGroupService {
     private deviceGroupRepository: Repository<DeviceGroup>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Peer)
+    private peerRepository: Repository<Peer>,
+    @InjectRepository(DeviceGroupUserPermission)
+    private deviceGroupUserPermissionRepository: Repository<DeviceGroupUserPermission>,
   ) {}
 
   /**
@@ -37,41 +44,51 @@ export class DeviceGroupService {
    */
   async getAccessibleDeviceGroups(
     userGuid: string,
-    query: { current: number; pageSize: number },
+    query: { current: number; pageSize: number; name?: string },
     isAdmin: boolean = false,
-  ): Promise<{ data: { name: string }[]; total: number }> {
-    const { current, pageSize } = query;
+  ): Promise<{ data: { guid: string; name: string; note?: string }[]; total: number }> {
+    const { current, pageSize, name } = query;
     const skip = (current - 1) * pageSize;
 
     // 管理员可以看到所有设备组
     if (isAdmin) {
-      const [groups, total] = await this.deviceGroupRepository.findAndCount({
-        select: ['guid', 'name'],
-        order: { name: 'ASC' },
-        skip,
-        take: pageSize,
-      });
+      let queryBuilder = this.deviceGroupRepository
+        .createQueryBuilder('dg')
+        .select(['dg.guid', 'dg.name', 'dg.note'])
+        .orderBy('dg.name', 'ASC')
+        .skip(skip)
+        .take(pageSize);
+
+      if (name) {
+        queryBuilder = queryBuilder.andWhere('dg.name = :name', { name });
+      }
+
+      const [groups, total] = await queryBuilder.getManyAndCount();
 
       return {
-        data: groups.map(g => ({ name: g.name })),
+        data: groups.map(g => ({ guid: g.guid, name: g.name, note: g.note || '' })),
         total,
       };
     }
 
     // 普通用户只能看到有权限的设备组
-    const queryBuilder = this.deviceGroupRepository
+    let queryBuilder = this.deviceGroupRepository
       .createQueryBuilder('dg')
       .innerJoin('device_group_user_permissions', 'udgp', 'udgp.deviceGroupGuid = dg.guid')
       .where('udgp.userGuid = :userGuid', { userGuid })
-      .select(['dg.guid', 'dg.name'])
+      .select(['dg.guid', 'dg.name', 'dg.note'])
       .orderBy('dg.name', 'ASC')
       .skip(skip)
       .take(pageSize);
 
+    if (name) {
+      queryBuilder = queryBuilder.andWhere('dg.name = :name', { name });
+    }
+
     const [groups, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: groups.map(g => ({ name: g.name })),
+      data: groups.map(g => ({ guid: g.guid, name: g.name, note: g.note || '' })),
       total,
     };
   }
@@ -186,6 +203,242 @@ export class DeviceGroupService {
         note: u.note || '',
         status: u.status,
         is_admin: u.isAdmin,
+      })),
+      total,
+    };
+  }
+
+  /**
+   * 创建设备组
+   * @param name 设备组名称
+   * @param note 备注
+   * @param allowedIncomings 允许访问的规则
+   * @returns 创建的设备组
+   */
+  async createDeviceGroup(name: string, note?: string, allowedIncomings?: any[]) {
+    // 检查设备组名称是否已存在
+    const existingGroup = await this.deviceGroupRepository.findOne({
+      where: { name },
+    });
+    if (existingGroup) {
+      throw new BadRequestException('设备组名称已存在');
+    }
+
+    const deviceGroup = new DeviceGroup();
+    deviceGroup.guid = uuid.v4();
+    deviceGroup.name = name;
+    deviceGroup.note = note || '';
+
+    await this.deviceGroupRepository.save(deviceGroup);
+
+    return { message: '设备组创建成功' };
+  }
+
+  /**
+   * 更新设备组
+   * @param guid 设备组GUID
+   * @param name 新名称
+   * @param note 新备注
+   * @param allowedIncomings 允许访问的规则
+   * @returns 更新结果
+   */
+  async updateDeviceGroup(guid: string, name?: string, note?: string, allowedIncomings?: any[]) {
+    const deviceGroup = await this.deviceGroupRepository.findOne({
+      where: { guid },
+    });
+    if (!deviceGroup) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    if (name !== undefined) {
+      // 检查新名称是否已存在
+      const existingGroup = await this.deviceGroupRepository.findOne({
+        where: { name },
+      });
+      if (existingGroup && existingGroup.guid !== guid) {
+        throw new BadRequestException('设备组名称已存在');
+      }
+      deviceGroup.name = name;
+    }
+
+    if (note !== undefined) {
+      deviceGroup.note = note;
+    }
+
+    await this.deviceGroupRepository.save(deviceGroup);
+
+    return { message: '设备组更新成功' };
+  }
+
+  /**
+   * 删除设备组
+   * @param guid 设备组GUID
+   */
+  async deleteDeviceGroup(guid: string) {
+    const deviceGroup = await this.deviceGroupRepository.findOne({
+      where: { guid },
+    });
+    if (!deviceGroup) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    await this.deviceGroupRepository.remove(deviceGroup);
+  }
+
+  /**
+   * 添加设备到设备组
+   * @param guid 设备组GUID
+   * @param deviceIds 设备ID列表
+   */
+  async addDevicesToGroup(guid: string, deviceIds: string[]) {
+    const deviceGroup = await this.deviceGroupRepository.findOne({
+      where: { guid },
+    });
+    if (!deviceGroup) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    // 查找所有设备
+    const peers = await this.peerRepository.find({
+      where: { id: In(deviceIds) },
+    });
+
+    if (peers.length === 0) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    // 更新设备的设备组
+    for (const peer of peers) {
+      peer.deviceGroupGuid = guid;
+      await this.peerRepository.save(peer);
+    }
+
+    return { message: '设备添加成功' };
+  }
+
+  /**
+   * 从设备组中移除设备
+   * @param guid 设备组GUID
+   * @param deviceIds 设备ID列表
+   */
+  async removeDevicesFromGroup(guid: string, deviceIds: string[]) {
+    const deviceGroup = await this.deviceGroupRepository.findOne({
+      where: { guid },
+    });
+    if (!deviceGroup) {
+      throw new NotFoundException('设备组不存在');
+    }
+
+    // 查找所有设备
+    const peers = await this.peerRepository.find({
+      where: { id: In(deviceIds), deviceGroupGuid: guid },
+    });
+
+    if (peers.length === 0) {
+      throw new NotFoundException('设备不存在或不在该设备组中');
+    }
+
+    // 移除设备的设备组
+    for (const peer of peers) {
+      peer.deviceGroupGuid = '';
+      await this.peerRepository.save(peer);
+    }
+
+    return { message: '设备移除成功' };
+  }
+
+  /**
+   * 获取设备列表
+   * @param userGuid 用户GUID
+   * @param query 查询参数
+   * @param isAdmin 是否为管理员
+   * @returns 设备列表和总数
+   */
+  async getDevices(
+    userGuid: string,
+    query: {
+      current: number;
+      pageSize: number;
+      id?: string;
+      device_name?: string;
+      user_name?: string;
+      device_username?: string;
+      device_group_name?: string;
+    },
+    isAdmin: boolean = false,
+  ): Promise<{ data: any[]; total: number }> {
+    const { current, pageSize, id, device_name, user_name, device_username, device_group_name } = query;
+    const skip = (current - 1) * pageSize;
+
+    let queryBuilder = this.peerRepository
+      .createQueryBuilder('peer')
+      .leftJoin('peer.deviceGroup', 'dg')
+      .select([
+        'peer.id',
+        'peer.uuid',
+        'peer.userGuid',
+        'peer.deviceGroupGuid',
+        'dg.name',
+      ]);
+
+    // 管理员可以看到所有设备
+    if (!isAdmin) {
+      // 普通用户只能看到自己有权限访问的设备
+      queryBuilder = queryBuilder.andWhere(
+        `(peer.userGuid = :userGuid
+          OR EXISTS (
+            SELECT 1 FROM device_group_user_permissions udgp
+            WHERE udgp.userGuid = :userGuid AND udgp.deviceGroupGuid = peer.deviceGroupGuid
+          )
+        )`,
+        { userGuid },
+      );
+    }
+
+    // 按设备ID过滤
+    if (id) {
+      queryBuilder = queryBuilder.andWhere('peer.id LIKE :id', { id: `%${id}%` });
+    }
+
+    // 按设备名称过滤
+    if (device_name) {
+      queryBuilder = queryBuilder.andWhere('peer.name LIKE :deviceName', { deviceName: `%${device_name}%` });
+    }
+
+    // 按用户名过滤
+    if (user_name) {
+      queryBuilder = queryBuilder.andWhere(
+        `EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.guid = peer.userGuid AND u.username LIKE :userName
+        )`,
+        { userName: `%${user_name}%` }
+      );
+    }
+
+    // 按设备用户名过滤
+    if (device_username) {
+      queryBuilder = queryBuilder.andWhere('peer.deviceUsername LIKE :deviceUsername', { deviceUsername: `%${device_username}%` });
+    }
+
+    // 按设备组名过滤（精确匹配）
+    if (device_group_name) {
+      queryBuilder = queryBuilder.andWhere('dg.name = :deviceGroupName', { deviceGroupName: device_group_name });
+    }
+
+    const [peers, total] = await queryBuilder
+      .orderBy('peer.id', 'ASC')
+      .skip(skip)
+      .take(pageSize)
+      .getManyAndCount();
+
+    return {
+      data: peers.map(p => ({
+        id: p.id,
+        uuid: p.uuid,
+        userGuid: p.userGuid,
+        deviceGroupGuid: p.deviceGroupGuid,
+        device_group_name: p.deviceGroup?.name || '',
       })),
       total,
     };
