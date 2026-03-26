@@ -80,7 +80,7 @@ export class DeviceGroupService {
    * 获取可访问的用户列表
    * 包括：自己 + 被授权访问的用户 + 通过设备组授权间接可访问的用户
    * 管理员可以看到所有用户
-   * 
+   *
    * @param userGuid 用户GUID
    * @param query 查询参数，包含分页和状态过滤
    * @param isAdmin 是否为管理员
@@ -88,23 +88,44 @@ export class DeviceGroupService {
    */
   async getAccessibleUsers(
     userGuid: string,
-    query: { current: number; pageSize: number; status: string },
+    query: { current: number; pageSize: number; status?: string; name?: string; group_name?: string },
     isAdmin: boolean = false,
   ): Promise<{ data: any[]; total: number }> {
-    const { current, pageSize, status } = query;
+    const { current, pageSize, status, name, group_name } = query;
     const skip = (current - 1) * pageSize;
 
     // 管理员可以看到所有用户
     if (isAdmin) {
-      const [users, total] = await this.userRepository.findAndCount({
-        where: { status: parseInt(status) || UserStatus.ACTIVE },
-        order: { username: 'ASC' },
-        skip,
-        take: pageSize,
-      });
+      const queryBuilder = this.userRepository
+        .createQueryBuilder('user')
+        .where('user.status = :status', { status: parseInt(status || '1') || UserStatus.ACTIVE });
+
+      // 按用户名过滤
+      if (name) {
+        queryBuilder.andWhere('user.username LIKE :name', { name: `%${name}%` });
+      }
+
+      // 按组名过滤（通过设备组）
+      if (group_name) {
+        queryBuilder.andWhere(
+          `EXISTS (
+            SELECT 1 FROM device_group_user_permissions udgp
+            INNER JOIN device_groups dg ON udgp.deviceGroupGuid = dg.guid
+            WHERE udgp.userGuid = user.guid AND dg.name LIKE :groupName
+          )`,
+          { groupName: `%${group_name}%` }
+        );
+      }
+
+      const [users, total] = await queryBuilder
+        .orderBy('user.username', 'ASC')
+        .skip(skip)
+        .take(pageSize)
+        .getManyAndCount();
 
       return {
         data: users.map(u => ({
+          guid: u.guid,
           name: u.username,
           email: u.email || '',
           note: u.note || '',
@@ -118,7 +139,7 @@ export class DeviceGroupService {
     // 普通用户只能看到有权限访问的用户
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .where('user.status = :status', { status: parseInt(status) || UserStatus.ACTIVE })
+      .where('user.status = :status', { status: parseInt(status || '1') || UserStatus.ACTIVE })
       .andWhere(
         `(user.guid = :userGuid
           OR EXISTS (
@@ -132,15 +153,34 @@ export class DeviceGroupService {
           )
         )`,
         { userGuid },
-      )
+      );
+
+    // 按用户名过滤
+    if (name) {
+      queryBuilder.andWhere('user.username LIKE :name', { name: `%${name}%` });
+    }
+
+    // 按组名过滤（通过设备组）
+    if (group_name) {
+      queryBuilder.andWhere(
+        `EXISTS (
+          SELECT 1 FROM device_group_user_permissions udgp
+          INNER JOIN device_groups dg ON udgp.deviceGroupGuid = dg.guid
+          WHERE udgp.userGuid = user.guid AND dg.name LIKE :groupName
+        )`,
+        { groupName: `%${group_name}%` }
+      );
+    }
+
+    const [users, total] = await queryBuilder
       .orderBy('user.username', 'ASC')
       .skip(skip)
-      .take(pageSize);
-
-    const [users, total] = await queryBuilder.getManyAndCount();
+      .take(pageSize)
+      .getManyAndCount();
 
     return {
       data: users.map(u => ({
+        guid: u.guid,
         name: u.username,
         email: u.email || '',
         note: u.note || '',

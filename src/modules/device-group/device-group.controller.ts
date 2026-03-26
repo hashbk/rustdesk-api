@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ValidationPipe, UsePipes } from '@nestjs/common';
 import { DeviceGroupService } from './device-group.service';
 import { PeerService } from './peer.service';
 import { DeviceGroupQueryDto } from './dto/device-group.dto';
@@ -90,10 +90,11 @@ export class DeviceGroupController {
    * @returns 可访问的用户列表（分页）
    */
   @Get('users')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   async getAccessibleUsers(
     @CurrentUser('id') userId: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query() query: UserQueryDto,
+    @Query() query: any,
   ) {
     return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
   }
