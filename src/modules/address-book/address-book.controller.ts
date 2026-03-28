@@ -197,6 +197,7 @@ export class AddressBookController {
         dto.note,
         dto.owner,
         dto.password,
+        String(userId),
       );
       return '';
     } catch (e) {

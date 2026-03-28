@@ -230,7 +230,7 @@ export class AddressBookRuleService {
   /**
    * 获取共享地址簿列表
    * 查询所有共享给当前用户的地址簿
-   * 
+   *
    * @param userId 用户 ID
    * @param query 分页查询参数
    * @returns 共享地址簿列表和总数
@@ -339,12 +339,17 @@ export class AddressBookRuleService {
    * 更新共享地址簿
    * 更新现有共享地址簿的信息
    *
+   * 权限要求：
+   * - 修改名称、备注、密码：需要 READ_WRITE 权限
+   * - 更改所有者：需要 FULL_CONTROL 权限
+   *
    * @param guid 地址簿 GUID
    * @param name 新名称（可选）
    * @param note 新备注（可选）
    * @param owner 新所有者（可选）
    * @param password 新密码（可选）
-   * @throws NotFoundException 地址簿不存在
+   * @param userId 当前用户 ID
+   * @throws NotFoundException 地址簿或用户不存在
    * @throws ForbiddenException 无权限修改
    * @throws ConflictException 名称已存在
    */
@@ -354,19 +359,61 @@ export class AddressBookRuleService {
     note?: string,
     owner?: string,
     password?: string,
+    userId?: string,
   ): Promise<void> {
     const addressBook = await this.addressBookRepository.findOne({
       where: { guid },
     });
 
     if (!addressBook) {
-      throw new ConflictException('地址簿不存在');
+      throw new NotFoundException('地址簿不存在');
+    }
+
+    // 判断是否需要更改所有者
+    const isChangingOwner = owner !== undefined && owner !== addressBook.owner;
+
+    // 确定所需的权限级别
+    const requiredRule = isChangingOwner ? ShareRule.FULL_CONTROL : ShareRule.READ_WRITE;
+
+    // 验证用户权限
+    if (userId) {
+      await this.permissionService.checkAddressBookAccess(guid, userId, requiredRule);
+    }
+
+    // 如果要更改所有者，需要验证新所有者存在
+    if (isChangingOwner) {
+      const newOwner = await this.userRepository.findOne({
+        where: { guid: owner },
+      });
+      if (!newOwner) {
+        throw new NotFoundException('新所有者用户不存在');
+      }
+
+      // 检查新所有者是否已经有该地址簿的访问权限
+      const existingRule = await this.ruleRepository.findOne({
+        where: {
+          addressBookGuid: guid,
+          targetUserId: owner,
+          targetGroupId: IsNull(),
+        },
+      });
+
+      if (!existingRule) {
+        // 如果新所有者没有权限，需要先赋予权限
+        const newRule = this.ruleRepository.create({
+          guid: uuidv4(),
+          addressBookGuid: guid,
+          targetUserId: owner,
+          rule: ShareRule.FULL_CONTROL,
+        });
+        await this.ruleRepository.save(newRule);
+      }
     }
 
     // 检查名称是否已被其他地址簿使用
     if (name && name !== addressBook.name) {
       const existing = await this.addressBookRepository.findOne({
-        where: { name, owner: addressBook.owner, isPersonal: false },
+        where: { name, owner: owner || addressBook.owner, isPersonal: false },
       });
       if (existing && existing.guid !== guid) {
         throw new ConflictException('地址簿名称已存在');

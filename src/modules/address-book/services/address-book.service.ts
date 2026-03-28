@@ -255,12 +255,13 @@ export class AddressBookService {
   /**
    * 更新共享地址簿
    * 委托给 RuleService 处理
-   * 
+   *
    * @param guid 地址簿 GUID
    * @param name 新名称
    * @param note 新备注
    * @param owner 新所有者
    * @param password 新密码
+   * @param userId 当前用户 ID
    */
   async updateSharedAddressBook(
     guid: string,
@@ -268,6 +269,7 @@ export class AddressBookService {
     note?: string,
     owner?: string,
     password?: string,
+    userId?: string,
   ) {
     return this.ruleService.updateSharedAddressBook(
       guid,
@@ -275,6 +277,7 @@ export class AddressBookService {
       note,
       owner,
       password,
+      userId,
     );
   }
 
