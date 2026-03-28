@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import { SkipValidationPipe } from './common/pipes/skip-validation.pipe';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,12 +17,13 @@ async function bootstrap() {
   });
 
   // 全局验证管道
-  const validationPipe = new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true,
-  });
-  app.useGlobalPipes(new SkipValidationPipe(validationPipe));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
