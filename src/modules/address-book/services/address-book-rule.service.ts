@@ -92,7 +92,7 @@ export class AddressBookRuleService {
    */
   async createRule(dto: CreateRuleDto, userId: string) {
     // 检查地址簿是否存在且用户有权限修改
-    await this.permissionService.checkAddressBookAccess(dto.guid, userId);
+    await this.permissionService.checkAddressBookAccess(dto.guid, userId, ShareRule.READ_WRITE);
 
     // 确定规则类型和目标
     const { user, group, rule = 1 } = dto;
@@ -175,7 +175,7 @@ export class AddressBookRuleService {
     }
 
     // 检查用户是否有权限修改该规则
-    await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId);
+    await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.READ_WRITE);
 
     // 更新规则权限
     rule.rule = dto.rule;
@@ -209,9 +209,10 @@ export class AddressBookRuleService {
       throw new NotFoundException('未找到任何规则');
     }
 
-    // 检查第一个规则的地址簿权限（假设所有规则都属于同一地址簿）
-    const firstRule = rules[0];
-    await this.permissionService.checkAddressBookAccess(firstRule.addressBookGuid, userId);
+    // 检查每个规则所属的地址簿权限，确保用户对所有地址簿都有权限
+    for (const rule of rules) {
+      await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.READ_WRITE);
+    }
 
     // 由于 AddressBookRule 有多个主键，需要使用完整的主键对象删除
     for (const rule of rules) {
@@ -312,7 +313,7 @@ export class AddressBookRuleService {
 
     // 创建地址簿
     const addressBook = this.addressBookRepository.create({
-      guid: this.generateGuid(),
+      guid: uuidv4(),
       name,
       owner: ownerUserId,
       isPersonal: false,
@@ -324,7 +325,7 @@ export class AddressBookRuleService {
 
     // 自动给创建者添加full权限的规则
     const rule = this.ruleRepository.create({
-      guid: this.generateGuid(),
+      guid: uuidv4(),
       addressBookGuid: addressBook.guid,
       targetUserId: ownerUserId,
       rule: 3, // full control
@@ -433,7 +434,7 @@ export class AddressBookRuleService {
     ownerUserId: string,
   ) {
     // 验证所有权
-    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId);
+    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId, ShareRule.FULL_CONTROL);
 
     // 检查是否已共享
     let sharedRule = await this.ruleRepository.findOne({
@@ -477,7 +478,7 @@ export class AddressBookRuleService {
     ownerUserId: string,
   ) {
     // 验证所有权
-    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId);
+    await this.permissionService.checkAddressBookAccess(addressBookGuid, ownerUserId, ShareRule.FULL_CONTROL);
 
     // 删除规则记录
     await this.ruleRepository.delete({
@@ -510,19 +511,5 @@ export class AddressBookRuleService {
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
     };
-  }
-
-  /**
-   * 生成 GUID
-   * 使用简单的 UUID 生成方式
-   *
-   * @returns UUID 字符串
-   */
-  private generateGuid(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
   }
 }
