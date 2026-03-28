@@ -49,10 +49,6 @@ export class AddressBookPeerService {
     const { current = 1, pageSize = 100, ab, id, alias } = query;
     const skip = (current - 1) * pageSize;
 
-    // 去除参数中的 % 通配符（ab.py 传递的参数可能包含 % 作为通配符）
-    const filterId = id?.replace(/%/g, '');
-    const filterAlias = alias?.replace(/%/g, '');
-
     const addressBook = await this.addressBookRepository.findOne({
       where: { guid: ab },
     });
@@ -66,14 +62,30 @@ export class AddressBookPeerService {
       await checkAccess(ab, userId, ShareRule.READ);
     }
 
-    const whereCondition: any = { addressBookGuid: ab };
+    const queryBuilder = this.addressBookPeerRepository
+      .createQueryBuilder('abp')
+      .leftJoinAndSelect('abp.tags', 'tags')
+      .where('abp.addressBookGuid = :addressBookGuid', { addressBookGuid: ab });
 
-    const [peers, total] = await this.addressBookPeerRepository.findAndCount({
-      where: whereCondition,
-      relations: ['tags'],
-      skip,
-      take: pageSize,
-    });
+    // 按别名过滤（模糊匹配）
+    if (alias) {
+      queryBuilder.andWhere('abp.alias LIKE :alias', { alias: `%${alias}%` });
+    }
+
+    // 按设备ID过滤（模糊匹配）- 使用子查询
+    if (id) {
+      queryBuilder.andWhere(
+        `abp.deviceId IN (
+          SELECT uuid FROM peers WHERE id LIKE :id
+        )`,
+        { id: `%${id}%` }
+      );
+    }
+
+    const [peers, total] = await queryBuilder
+      .skip(skip)
+      .take(pageSize)
+      .getManyAndCount();
 
     // 获取所有设备ID (uuid)，用于从 peers 表和 sysinfos 表获取信息
     const deviceIds = peers.map(p => p.deviceId);
@@ -95,7 +107,7 @@ export class AddressBookPeerService {
     const sysinfoMap = new Map(sysinfos.map(s => [s.uuid, s]));
 
     // 组装返回数据
-    let data = peers.map(p => {
+    const data = peers.map(p => {
       const peerRecord = peerMap.get(p.deviceId);
       const sysinfo = sysinfoMap.get(p.deviceId);
       return {
@@ -110,16 +122,6 @@ export class AddressBookPeerService {
         note: p.note,
       };
     });
-
-    // 如果提供了id参数，进行过滤
-    if (filterId) {
-      data = data.filter(item => item.id && item.id.includes(filterId));
-    }
-
-    // 如果提供了alias参数，进行过滤
-    if (filterAlias) {
-      data = data.filter(item => item.alias && item.alias.includes(filterAlias));
-    }
 
     return { total, data };
   }
