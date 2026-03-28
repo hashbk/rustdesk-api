@@ -5,7 +5,7 @@ import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
 import { Public } from '../auth/decorators/public.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
 /**
  * 审计控制器
@@ -133,7 +133,8 @@ export class AuditsController {
    * - 支持按创建时间过滤
    *
    * 安全措施：
-   * - 使用JwtAuthGuard进行认证
+   * - 使用AdminGuard进行认证
+   * - 只有管理员可以查询审计记录
    *
    * @param remote 远程设备ID（模糊匹配）
    * @param conn_type 连接类型
@@ -142,7 +143,7 @@ export class AuditsController {
    * @param created_at 创建时间（UTC时间字符串）
    * @returns 连接审计列表
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @Get('conn')
   async queryConnectionAudits(
     @Query('remote') remote?: string,
@@ -170,7 +171,8 @@ export class AuditsController {
    * - 支持按创建时间过滤
    *
    * 安全措施：
-   * - 使用JwtAuthGuard进行认证
+   * - 使用AdminGuard进行认证
+   * - 只有管理员可以查询审计记录
    *
    * @param remote 远程设备ID（模糊匹配）
    * @param pageSize 每页记录数
@@ -178,7 +180,7 @@ export class AuditsController {
    * @param created_at 创建时间（UTC时间字符串）
    * @returns 文件审计列表
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @Get('file')
   async queryFileAudits(
     @Query('remote') remote?: string,
@@ -204,7 +206,8 @@ export class AuditsController {
    * - 支持按创建时间过滤
    *
    * 安全措施：
-   * - 使用JwtAuthGuard进行认证
+   * - 使用AdminGuard进行认证
+   * - 只有管理员可以查询审计记录
    *
    * @param device 设备ID（模糊匹配）
    * @param pageSize 每页记录数
@@ -212,7 +215,7 @@ export class AuditsController {
    * @param created_at 创建时间（UTC时间字符串）
    * @returns 告警审计列表
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @Get('alarm')
   async queryAlarmAudits(
     @Query('device') device?: string,
@@ -238,7 +241,8 @@ export class AuditsController {
    * - 支持按创建时间过滤
    *
    * 安全措施：
-   * - 使用JwtAuthGuard进行认证
+   * - 使用AdminGuard进行认证
+   * - 只有管理员可以查询审计记录
    *
    * @param operator 操作人（模糊匹配）
    * @param pageSize 每页记录数
@@ -246,7 +250,7 @@ export class AuditsController {
    * @param created_at 创建时间（UTC时间字符串）
    * @returns 控制台审计列表
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @Get('console')
   async queryConsoleAudits(
     @Query('operator') operator?: string,
