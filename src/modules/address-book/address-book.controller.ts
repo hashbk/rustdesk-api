@@ -16,17 +16,17 @@ import { AddressBookRuleService } from './services/address-book-rule.service';
  *
  * 新版 API：
  * - POST /api/ab/settings - 获取地址簿设置
- * - GET /api/ab/personal - 获取个人地址簿 GUID（ab.py 使用）
- * - POST /api/ab/personal - 获取个人地址簿 GUID（兼容）
- * - GET /api/ab/shared/profiles - 获取共享地址簿列表（ab.py 使用）
- * - POST /api/ab/shared/profiles - 获取共享地址簿列表（兼容）
+ * - GET /api/ab/personal - 获取个人地址簿 GUID
+ * - POST /api/ab/personal - 获取个人地址簿 GUID
+ * - GET /api/ab/shared/profiles - 获取共享地址簿列表
+ * - POST /api/ab/shared/profiles - 获取共享地址簿列表
  * - POST /api/ab/shared/add - 添加共享地址簿
  * - PUT /api/ab/shared/update/profile - 更新共享地址簿
  * - DELETE /api/ab/shared - 删除共享地址簿
- * - GET /api/ab/peers - 获取地址簿中的设备列表（ab.py 使用）
- * - POST /api/ab/peers - 获取地址簿中的设备列表（兼容）
- * - GET /api/ab/tags/{guid} - 获取地址簿标签列表（ab.py 使用）
- * - POST /api/ab/tags/{guid} - 获取地址簿标签列表（兼容）
+ * - GET /api/ab/peers - 获取地址簿中的设备列表
+ * - POST /api/ab/peers - 获取地址簿中的设备列表
+ * - GET /api/ab/tags/{guid} - 获取地址簿标签列表
+ * - POST /api/ab/tags/{guid} - 获取地址簿标签列表
  * - POST /api/ab/peer/add/{guid} - 添加设备到地址簿
  * - PUT /api/ab/peer/update/{guid} - 更新设备信息
  * - DELETE /api/ab/peer/{guid} - 删除设备
@@ -96,7 +96,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取个人地址簿 GUID（GET 方式，ab.py 使用）
+   * 获取个人地址簿 GUID
    * 获取当前用户的个人地址簿的唯一标识符
    *
    * @param userId 当前用户 ID（从 JWT 令牌中提取）
@@ -109,7 +109,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取个人地址簿 GUID（POST 方式，兼容旧 API）
+   * 获取个人地址簿 GUID
    * 获取当前用户的个人地址簿的唯一标识符
    *
    * @param userId 当前用户 ID（从 JWT 令牌中提取）
@@ -122,7 +122,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取共享地址簿列表（GET 方式，ab.py 使用）
+   * 获取共享地址簿列表
    * 获取当前用户可访问的所有共享地址簿列表
    *
    * @param query 分页查询参数
@@ -136,7 +136,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取共享地址簿列表（POST 方式，兼容旧 API）
+   * 获取共享地址簿列表
    * 获取当前用户可访问的所有共享地址簿列表
    *
    * @param query 分页查询参数
@@ -228,7 +228,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取地址簿中的设备列表（GET 方式，ab.py 使用）
+   * 获取地址簿中的设备列表
    * 获取指定地址簿中的所有设备信息
    *
    * @param query 查询参数（包含标签、搜索关键词等）
@@ -242,7 +242,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取地址簿中的设备列表（POST 方式，兼容旧 API）
+   * 获取地址簿中的设备列表
    * 获取指定地址簿中的所有设备信息
    *
    * @param query 查询参数（包含标签、搜索关键词等）
@@ -256,7 +256,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取地址簿标签列表（GET 方式，ab.py 使用）
+   * 获取地址簿标签列表
    * 获取指定地址簿中的所有标签
    *
    * @param guid 地址簿 GUID
@@ -270,7 +270,7 @@ export class AddressBookController {
   }
 
   /**
-   * 获取地址簿标签列表（POST 方式，兼容旧 API）
+   * 获取地址簿标签列表
    * 获取指定地址簿中的所有标签
    *
    * @param guid 地址簿 GUID
