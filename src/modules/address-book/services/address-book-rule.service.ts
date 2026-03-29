@@ -92,7 +92,7 @@ export class AddressBookRuleService {
    */
   async createRule(dto: CreateRuleDto, userId: string) {
     // 检查地址簿是否存在且用户有权限修改
-    await this.permissionService.checkAddressBookAccess(dto.guid, userId, ShareRule.READ_WRITE);
+    await this.permissionService.checkAddressBookAccess(dto.guid, userId, ShareRule.FULL_CONTROL);
 
     // 确定规则类型和目标
     const { user, group, rule = 1 } = dto;
@@ -175,7 +175,7 @@ export class AddressBookRuleService {
     }
 
     // 检查用户是否有权限修改该规则
-    await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.READ_WRITE);
+    await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.FULL_CONTROL);
 
     // 更新规则权限
     rule.rule = dto.rule;
@@ -211,7 +211,7 @@ export class AddressBookRuleService {
 
     // 检查每个规则所属的地址簿权限，确保用户对所有地址簿都有权限
     for (const rule of rules) {
-      await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.READ_WRITE);
+      await this.permissionService.checkAddressBookAccess(rule.addressBookGuid, userId, ShareRule.FULL_CONTROL);
     }
 
     // 由于 AddressBookRule 有多个主键，需要使用完整的主键对象删除
