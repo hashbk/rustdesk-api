@@ -4,6 +4,7 @@ import { PeerService } from './peer.service';
 import { DeviceGroupQueryDto } from './dto/device-group.dto';
 import { PeerQueryDto } from './dto/peer.dto';
 import { UserQueryDto } from './dto/user.dto';
+import { DeviceQueryDto } from './dto/device.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AdminGuard } from '../../common/guards/admin.guard';
 
@@ -91,11 +92,10 @@ export class DeviceGroupController {
    * @returns 可访问的用户列表（分页）
    */
   @Get('users')
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   async getAccessibleUsers(
     @CurrentUser('id') userId: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query() query: any,
+    @Query() query: UserQueryDto,
   ) {
     return this.deviceGroupService.getAccessibleUsers(userId, query, isAdmin);
   }
@@ -113,11 +113,10 @@ export class DeviceGroupController {
    */
   @Get('device-groups')
   @UseGuards(AdminGuard)
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   async getDeviceGroups(
     @CurrentUser('id') userId: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query() query: any,
+    @Query() query: DeviceGroupQueryDto,
   ) {
     return this.deviceGroupService.getAccessibleDeviceGroups(userId, query, isAdmin);
   }
@@ -225,11 +224,10 @@ export class DeviceGroupController {
    * @returns 设备列表（分页）
    */
   @Get('devices')
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   async getDevices(
     @CurrentUser('id') userId: string,
     @CurrentUser('isAdmin') isAdmin: boolean,
-    @Query() query: any,
+    @Query() query: DeviceQueryDto,
   ) {
     return this.deviceGroupService.getDevices(userId, query, isAdmin);
   }
