@@ -5,7 +5,7 @@ import { ConnectionAuditDto } from './dto/connection-audit.dto';
 import { FileAuditDto } from './dto/file-audit.dto';
 import { AlarmAuditDto } from './dto/alarm-audit.dto';
 import { Public } from '../auth/decorators/public.decorator';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 /**
  * 审计控制器
