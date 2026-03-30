@@ -4,8 +4,7 @@ import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserStatus } from './entities/user.entity';
-import { DeviceGroup } from '../device-group/entities/device-group.entity';
-import { DeviceGroupUserPermission } from '../device-group/entities/device-group-user-permission.entity';
+import { UserToken } from './entities/user-token.entity';
 
 @Injectable()
 /**
@@ -26,10 +25,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(DeviceGroup)
-    private deviceGroupRepository: Repository<DeviceGroup>,
-    @InjectRepository(DeviceGroupUserPermission)
-    private deviceGroupUserPermissionRepository: Repository<DeviceGroupUserPermission>,
+    @InjectRepository(UserToken)
+    private userTokenRepository: Repository<UserToken>,
   ) {}
 
   /**
@@ -40,11 +37,10 @@ export class UserService {
   async createUser(createUserDto: {
     name: string;
     password: string;
-    group_name?: string;
     email?: string;
     note?: string;
   }) {
-    const { name, password, group_name, email, note } = createUserDto;
+    const { name, password, email, note } = createUserDto;
 
     // 检查用户名是否已存在
     const existingUser = await this.userRepository.findOne({
@@ -76,19 +72,6 @@ export class UserService {
 
     await this.userRepository.save(user);
 
-    // 如果指定了组名，将用户添加到该组
-    if (group_name) {
-      const deviceGroup = await this.deviceGroupRepository.findOne({
-        where: { name: group_name },
-      });
-      if (deviceGroup) {
-        const permission = new DeviceGroupUserPermission();
-        permission.userGuid = user.guid;
-        permission.deviceGroupGuid = deviceGroup.guid;
-        await this.deviceGroupUserPermissionRepository.save(permission);
-      }
-    }
-
     return { message: '用户创建成功' };
   }
 
@@ -100,10 +83,9 @@ export class UserService {
   async inviteUser(inviteUserDto: {
     email: string;
     name: string;
-    group_name?: string;
     note?: string;
   }) {
-    const { email, name, group_name, note } = inviteUserDto;
+    const { email, name, note } = inviteUserDto;
 
     // 检查邮箱是否已存在
     const existingUser = await this.userRepository.findOne({
@@ -124,19 +106,6 @@ export class UserService {
     user.isAdmin = false;
 
     await this.userRepository.save(user);
-
-    // 如果指定了组名，将用户添加到该组
-    if (group_name) {
-      const deviceGroup = await this.deviceGroupRepository.findOne({
-        where: { name: group_name },
-      });
-      if (deviceGroup) {
-        const permission = new DeviceGroupUserPermission();
-        permission.userGuid = user.guid;
-        permission.deviceGroupGuid = deviceGroup.guid;
-        await this.deviceGroupUserPermissionRepository.save(permission);
-      }
-    }
 
     return { message: '邀请发送成功' };
   }
@@ -256,12 +225,11 @@ export class UserService {
       throw new NotFoundException('用户不存在');
     }
 
-    // 删除用户的所有令牌
-    for (const user of users) {
-      // UserToken实体有级联删除，所以删除用户会自动删除关联的令牌
-      // 但这里我们只需要标记用户需要重新登录
-      // 实际的令牌验证会在JwtAuthGuard中处理
-    }
+    // 撤销用户的所有令牌
+    await this.userTokenRepository.update(
+      { userGuid: In(userGuids), isRevoked: false },
+      { isRevoked: true },
+    );
 
     return { message: '强制登出成功' };
   }
