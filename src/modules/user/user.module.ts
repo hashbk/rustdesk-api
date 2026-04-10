@@ -6,6 +6,8 @@ import { User } from './entities/user.entity';
 import { UserToken } from './entities/user-token.entity';
 import { Peer, Sysinfo } from '../../common/entities';
 import { AuthModule } from '../auth/auth.module';
+import { DeviceGroup } from '../device-group/entities/device-group.entity';
+import { DeviceGroupUserPermission } from '../device-group/entities/device-group-user-permission.entity';
 
 /**
  * 用户模块
@@ -22,7 +24,7 @@ import { AuthModule } from '../auth/auth.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserToken, Peer, Sysinfo]),
+    TypeOrmModule.forFeature([User, UserToken, Peer, Sysinfo, DeviceGroup, DeviceGroupUserPermission]),
     AuthModule,
   ],
   controllers: [UserController],

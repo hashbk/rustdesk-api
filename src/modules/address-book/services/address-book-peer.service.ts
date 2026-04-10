@@ -46,7 +46,7 @@ export class AddressBookPeerService {
     userId?: string,
     checkAccess?: (ab: string, userId: string, rule: ShareRule) => Promise<AddressBook>,
   ) {
-    const { current = 1, pageSize = 100, ab } = query;
+    const { current = 1, pageSize = 100, ab, id, alias } = query;
     const skip = (current - 1) * pageSize;
 
     const addressBook = await this.addressBookRepository.findOne({
@@ -62,12 +62,30 @@ export class AddressBookPeerService {
       await checkAccess(ab, userId, ShareRule.READ);
     }
 
-    const [peers, total] = await this.addressBookPeerRepository.findAndCount({
-      where: { addressBookGuid: ab },
-      relations: ['tags'],
-      skip,
-      take: pageSize,
-    });
+    const queryBuilder = this.addressBookPeerRepository
+      .createQueryBuilder('abp')
+      .leftJoinAndSelect('abp.tags', 'tags')
+      .where('abp.addressBookGuid = :addressBookGuid', { addressBookGuid: ab });
+
+    // 按别名过滤（模糊匹配）
+    if (alias) {
+      queryBuilder.andWhere('abp.alias LIKE :alias', { alias: `%${alias}%` });
+    }
+
+    // 按设备ID过滤（模糊匹配）- 使用子查询
+    if (id) {
+      queryBuilder.andWhere(
+        `abp.deviceId IN (
+          SELECT uuid FROM peers WHERE id LIKE :id
+        )`,
+        { id: `%${id}%` }
+      );
+    }
+
+    const [peers, total] = await queryBuilder
+      .skip(skip)
+      .take(pageSize)
+      .getManyAndCount();
 
     // 获取所有设备ID (uuid)，用于从 peers 表和 sysinfos 表获取信息
     const deviceIds = peers.map(p => p.deviceId);
