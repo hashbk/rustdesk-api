@@ -1,4 +1,4 @@
-import { IsNumber, Min, IsInt, IsString, IsOptional } from 'class-validator';
+import { IsNumber, Min, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -17,8 +17,4 @@ export class DeviceGroupQueryDto {
   @IsInt()
   @Type(() => Number)
   pageSize: number;
-
-  @IsString()
-  @IsOptional()
-  name?: string;
 }

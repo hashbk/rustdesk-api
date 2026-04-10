@@ -27,14 +27,6 @@ export class PaginationDto {
   @IsNumber()
   @Min(1)
   pageSize?: number = 100;
-
-  /**
-   * 名称过滤
-   * 用于按名称筛选地址簿
-   */
-  @IsOptional()
-  @IsString()
-  name?: string;
 }
 
 /**
@@ -49,20 +41,4 @@ export class PeersQueryDto extends PaginationDto {
   @IsString()
   @IsNotEmpty()
   ab: string;
-
-  /**
-   * 设备ID过滤
-   * 用于按设备ID筛选
-   */
-  @IsOptional()
-  @IsString()
-  id?: string;
-
-  /**
-   * 别名过滤
-   * 用于按别名筛选
-   */
-  @IsOptional()
-  @IsString()
-  alias?: string;
 }
